@@ -53,7 +53,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Next
 
-1. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
-2. End-to-end check with real Google/Microsoft/Dropbox accounts once client IDs exist (blocked, see above).
+1. **Drive: choose a folder when creating a church** (requested 2026-11-06). Today `GoogleDriveAdapter.create` puts `Church.fidelia` at the top of My Drive. Default to a “Fidelia” folder (create it if missing, `mimeType: application/vnd.google-apps.folder`) and let the user rename it. Moving the file later already works (the app tracks the file ID). Note: with `drive.file`, the app can only list folders it created, so offer “Fidelia folder” or “top level”, not a full folder browser.
+2. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
+3. End-to-end check with real Google/Microsoft/Dropbox accounts once client IDs exist (blocked, see above).
 
 The auto-resume job was cancelled on 2026-11-06 because only items needing the author remain (plus the Members bug, held at the author's request).
