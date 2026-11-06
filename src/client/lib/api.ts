@@ -6,6 +6,7 @@ import * as categoriesData from '../data/categories';
 import * as donorsData from '../data/donors';
 import * as batchesData from '../data/batches';
 import * as offeringsData from '../data/offerings';
+import * as pledgesData from '../data/pledges';
 
 const BASE_URL = '/api';
 
@@ -114,15 +115,11 @@ export const api = {
   },
 
   pledges: {
-    list: (params?: Record<string, string>) => {
-      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-      return request<any[]>(`/pledges${qs}`);
-    },
-    get: (id: number) => request<any>(`/pledges/${id}`),
-    create: (data: any) => request<any>('/pledges', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: any) =>
-      request<any>(`/pledges/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: number) => request<any>(`/pledges/${id}`, { method: 'DELETE' }),
+    list: (params?: Record<string, string>) => read((db) => pledgesData.listPledges(db, params)),
+    get: (id: number) => read((db) => pledgesData.getPledge(db, id)),
+    create: (data: any) => write((db) => pledgesData.createPledge(db, data)),
+    update: (id: number, data: any) => write((db) => pledgesData.updatePledge(db, id, data)),
+    delete: (id: number) => write((db) => pledgesData.deletePledge(db, id)),
   },
 
   sync: {
