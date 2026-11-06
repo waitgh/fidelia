@@ -15,6 +15,8 @@ npm test             # vitest (tests live next to code as *.test.ts)
 npm run db:generate  # generate a migration after editing src/db/schema.ts
 ```
 
+**Start here:** read [docs/decisions.md](docs/decisions.md) for why this project exists, the trade-offs already accepted, open decisions, and the next steps.
+
 ## What this project is
 
 A browser-only rewrite of Fidelia Ledger (the Express + SQLite app in the old server app). Goals:
