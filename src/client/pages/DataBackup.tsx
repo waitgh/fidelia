@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Save, Download, History, KeyRound, Printer, Loader2 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import type { StoredVersion } from '../storage/types';
+import { diagnostics } from '../church/diagnostics';
 
 const STATE_LABEL = { saved: 'All changes saved', dirty: 'Unsaved changes…', saving: 'Saving…', error: 'Save failed' };
 
@@ -60,6 +61,11 @@ export function DataBackup() {
         <div className="flex flex-wrap gap-2">
           {!church.readOnly && <button className="btn-secondary" disabled={busy} onClick={() => act(async () => { await church.saveNow(); return 'Saved.'; })}><Save className="h-4 w-4" /> Save now</button>}
           <button className="btn-secondary" disabled={busy} onClick={download}><Download className="h-4 w-4" /> Download encrypted backup</button>
+          <button className="btn-ghost" disabled={busy} onClick={() => act(async () => {
+            const report = JSON.stringify(diagnostics(church, { appVersion: __APP_VERSION__, userAgent: navigator.userAgent }), null, 2);
+            await navigator.clipboard.writeText(report);
+            return 'Diagnostics copied. It has counts and versions only, no names or amounts. Paste it into an email to your helper.';
+          })}>Copy diagnostics</button>
         </div>
       </section>
 
