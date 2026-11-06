@@ -10,6 +10,9 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-06: **Dropbox storage** (`storage/dropbox.ts`): PKCE redirect sign-in with refresh token (no mid-session redirects), conflict detection by Dropbox (`update` mode with rev), versions from Dropbox revisions, edit lock in a sibling `.lock` file. Needs `VITE_DROPBOX_APP_KEY`.
+- 2026-11-06: Scrubbed diagnostics (Data & Backup → Copy diagnostics). Docs: `docs/deploy.md`, `docs/treasurer-guide.md`, README.
+
 - 2026-11-06: **Edit lock** (`church/lock.ts`): lock in the Drive file's `appProperties`, 3-min expiry, 1-min heartbeat, write-then-verify. Others get a read-only banner with “Try again”; taking the lock reloads the latest file. Save-time revision check remains the backstop.
 - 2026-11-06: **Email statements from the browser** (`mail/microsoft.ts`, `mail/gmail.ts`): popup OAuth (`public/oauth-callback.html`) so the open session survives; Microsoft = auth code + PKCE → Graph `/me/sendMail`; Gmail = `gmail.send` MIME. Sign-in buttons in the Email Statements dialog. Sending stays resumable (per-donor status in the DB).
 - 2026-11-06: **Hosting hardening**: `public/_headers` (strict CSP: scripts only from self; network only to Google/Microsoft APIs), `_redirects` SPA fallback, OCR assets self-hosted (`scripts/vendor-ocr.mjs` runs before dev/build), pages lazy-loaded (main bundle 943→373 KB).
@@ -35,11 +38,12 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 ## Blocked on
 
 - **Microsoft app registration** (needs you, only for M365 sending): Entra app, platform “Single-page application”, redirect `<origin>/oauth-callback.html`, delegated `Mail.Send`. Put the ID in `VITE_MS_CLIENT_ID`.
+- **Dropbox app key** (needs you, optional): see `.env.example`.
 - **Google OAuth client ID** (needs you): create a Google Cloud project, enable the Drive API, create an OAuth client of type “Web application”, add the site origin (and `http://localhost:5173`) as JavaScript origin and `<origin>/` as redirect URI, then put the ID in `.env.local` as `VITE_GOOGLE_CLIENT_ID` (see `.env.example`). For “Open with” from Drive, also configure the Drive UI integration with open URL `<origin>/`. Until then the Drive option is hidden; local files and demo work.
 
 ## Next
 
-1. Scrubbed “Send diagnostics” export (no PII), and friendlier error messages.
-2. Docs: treasurer setup guide, deployment guide (Cloudflare Pages + OAuth setup), update README.
-3. Dropbox adapter.
+1. Review `npm audit` advisories (old `xlsx` package) and dependency leanness.
+2. Audit log (local, inside the encrypted DB) — optional.
+3. Mobile pass (iPhone layout of the welcome flow and data entry).
 4. Autosave + versions, edit lock, invites, Drive/Dropbox adapters, browser email, old-DB import.

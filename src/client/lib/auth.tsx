@@ -6,6 +6,7 @@ import { onDirty, setSession, setUserName } from '../data/session';
 import { AuthExpiredError, GoogleDriveAdapter } from '../storage/googleDrive';
 import { startGoogleSignIn } from '../storage/googleAuth';
 import { setMailer } from '../mail/types';
+import { DropboxAdapter, startDropboxSignIn } from '../storage/dropbox';
 
 export interface AuthUser {
   id: number;
@@ -128,12 +129,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )}
       {church && saveState === 'error' && church.lastError instanceof AuthExpiredError && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-amber-50 border-amber-300 text-amber-900">
-          <p className="text-sm">Your Google sign-in expired. Your changes are kept safely in this browser.</p>
+          <p className="text-sm">Your cloud sign-in expired. Your changes are kept safely in this browser.</p>
           <button className="btn-primary btn-sm" onClick={() => {
             if (church.adapter instanceof GoogleDriveAdapter) {
               sessionStorage.setItem('fidelia.driveOpen', JSON.stringify({ id: church.adapter.fileId, name: church.adapter.describe() }));
             }
-            church.close(); setSession(null); startGoogleSignIn('/');
+            const adapter = church.adapter;
+            church.close(); setSession(null);
+            if (adapter instanceof DropboxAdapter) {
+              sessionStorage.setItem('fidelia.dropboxOpen', adapter.path);
+              sessionStorage.setItem('fidelia.resume', 'dropbox');
+              void startDropboxSignIn();
+            } else startGoogleSignIn('/');
           }}>
             Sign in again
           </button>

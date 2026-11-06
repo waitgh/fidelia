@@ -11,6 +11,7 @@ import type { StorageAdapter } from '../storage/types';
 import { seedDemo } from '../data/seed';
 import { getRecent, setRecent, type RecentChurch } from '../storage/recent';
 import { GoogleDriveAdapter } from '../storage/googleDrive';
+import { DropboxAdapter, dropboxAppKey, hasDropboxSession, startDropboxSignIn, completeDropboxSignIn } from '../storage/dropbox';
 import { getGoogleToken, googleClientId, startGoogleSignIn } from '../storage/googleAuth';
 
 type DriveFile = { id: string; name: string; modifiedTime?: string };
@@ -35,6 +36,7 @@ function driveOpenRequest(): DriveFile | null {
 type Step =
   | { s: 'start' }
   | { s: 'drive'; files: DriveFile[] }
+  | { s: 'dropbox'; files: { path: string; name: string; modified: string }[] }
   | { s: 'unlock'; adapter: StorageAdapter }
   | { s: 'recover'; adapter: StorageAdapter }
   | { s: 'claim'; church: Church }
@@ -128,8 +130,22 @@ export function Login() {
     go({ s: 'drive', files: await GoogleDriveAdapter.list(getGoogleToken) });
   });
 
+  const dropboxConfigured = !!dropboxAppKey();
+  const [newPath, setNewPath] = useState('/Fidelia/Church.fidelia');
+  const openDropbox = () => a.run(async () => {
+    if (!hasDropboxSession()) { sessionStorage.setItem('fidelia.resume', 'dropbox'); await startDropboxSignIn(); return; }
+    const want = sessionStorage.getItem('fidelia.dropboxOpen');
+    if (want) { sessionStorage.removeItem('fidelia.dropboxOpen'); go({ s: 'unlock', adapter: new DropboxAdapter(want) }); return; }
+    go({ s: 'dropbox', files: await DropboxAdapter.list() });
+  });
+
   // Resume after the Google redirect, or after Drive "Open with".
   useEffect(() => {
+    if (sessionStorage.getItem('fidelia.resume') === 'dropbox') {
+      sessionStorage.removeItem('fidelia.resume');
+      void a.run(async () => { if (await completeDropboxSignIn()) await openDropbox(); });
+      return;
+    }
     const startupError = (window as any).__fideliaStartupError as string;
     if (startupError) { a.setError(startupError); return; }
     const resumed = sessionStorage.getItem('fidelia.resume') === 'google-drive';
@@ -142,6 +158,8 @@ export function Login() {
   const enterAndRemember = (church: Church) => {
     if (church.adapter instanceof LocalFileAdapter) {
       void setRecent({ kind: 'local-file', label: church.adapter.describe(), ref: church.adapter.fileHandle });
+    } else if (church.adapter instanceof DropboxAdapter) {
+      void setRecent({ kind: 'dropbox', label: church.adapter.describe(), ref: church.adapter.path });
     } else if (church.adapter instanceof GoogleDriveAdapter) {
       void setRecent({ kind: 'google-drive', label: church.adapter.describe(), ref: church.adapter.fileId });
     }
@@ -181,6 +199,13 @@ export function Login() {
         )}
         {driveConfigured && (
           <Choice icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Open or set up a church file in your Google Drive. Works on iPhone." onClick={openDrive} />
+        )}
+        {recent?.kind === 'dropbox' && dropboxConfigured && (
+          <Choice icon={<Cloud className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
+            onClick={() => { sessionStorage.setItem('fidelia.dropboxOpen', String(recent.ref)); void openDropbox(); }} />
+        )}
+        {dropboxConfigured && (
+          <Choice icon={<Cloud className="h-5 w-5" />} title="Dropbox" text="Open or set up a church file in your Dropbox." onClick={openDropbox} />
         )}
         <Choice icon={<FolderOpen className="h-5 w-5" />} title="Open church file" disabled={!fileSupported}
           text={fileSupported ? 'Open your church’s .fidelia file on this computer.' : 'Opening local files needs Chrome or Edge on a computer.'}
@@ -223,6 +248,34 @@ export function Login() {
         <button type="button" className="btn-secondary w-full" disabled={a.busy}
           onClick={() => a.run(async () => go({ s: 'create', adapter: await GoogleDriveAdapter.create(getGoogleToken, 'Church.fidelia') }))}>
           <PlusCircle className="h-4 w-4" /> Set up a new church in Drive</button>
+        <Back onClick={() => go({ s: 'start' })} />
+      </Shell>
+    );
+  }
+
+  if (step.s === 'dropbox') {
+    return (
+      <Shell>
+        <Title>Dropbox</Title>
+        <ErrorBox error={a.error} />
+        {step.files.length ? (
+          <ul className="space-y-2">
+            {step.files.map((f) => (
+              <li key={f.path}>
+                <button type="button" onClick={() => go({ s: 'unlock', adapter: new DropboxAdapter(f.path) })}
+                  className="w-full flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left hover:border-primary-400 hover:bg-primary-50">
+                  <FileLock2 className="h-5 w-5 text-primary-600" />
+                  <span><span className="block font-medium">{f.name}</span><span className="block text-xs text-gray-500">{f.path}</span></span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="text-sm text-gray-600">No church files found in your Dropbox.</p>}
+        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); go({ s: 'create', adapter: new DropboxAdapter(newPath.endsWith('.fidelia') ? newPath : `${newPath}.fidelia`) }); }}>
+          <Field label="New church file location" value={newPath} onChange={setNewPath} />
+          <button className="btn-secondary w-full"><PlusCircle className="h-4 w-4" /> Set up a new church in Dropbox</button>
+        </form>
+        <p className="text-xs text-gray-500">To let others in, share the folder with them in Dropbox, then add them under Members.</p>
         <Back onClick={() => go({ s: 'start' })} />
       </Shell>
     );
