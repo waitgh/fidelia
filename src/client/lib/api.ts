@@ -1,6 +1,8 @@
 import type { StatementEmailConfig, StatementEmailRecipient } from '../../shared/types/index.js';
 
-import { getDb, markDirty } from '../data/session';
+import { getDb, getUserName, markDirty } from '../data/session';
+import { getMailer } from '../mail/types';
+import * as statementEmailsData from '../data/statementEmails';
 import type { AppDb } from '../data/db';
 import * as categoriesData from '../data/categories';
 import * as donorsData from '../data/donors';
@@ -200,23 +202,44 @@ export const api = {
   },
 
   statementEmails: {
-    config: () => request<StatementEmailConfig>('/statement-emails/config'),
-    recipients: (startDate: string, endDate: string) =>
-      request<StatementEmailRecipient[]>(`/statement-emails/recipients?${new URLSearchParams({ startDate, endDate })}`),
-    send: (data: {
-      donorId: number;
-      startDate: string;
-      endDate: string;
-      subject: string;
-      body: string;
-      pdfBase64: string;
-      filename: string;
-      testTo?: string;
-    }) =>
-      request<{ ok: boolean; status: 'sent' | 'dry_run'; to: string[] }>('/statement-emails/send', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    config: (): Promise<StatementEmailConfig> => {
+      const m = getMailer();
+      return Promise.resolve({
+        configured: !!m,
+        dryRun: m?.provider === 'dry-run',
+        sender: m?.sender() ?? null,
+        missing: m ? [] : ['Sign in with Microsoft 365 or Gmail in Settings to send statements'],
+      });
+    },
+    recipients: (startDate: string, endDate: string): Promise<StatementEmailRecipient[]> =>
+      read((db) => statementEmailsData.listRecipients(db, startDate, endDate)),
+    send: async (data: statementEmailsData.SendRequest) => {
+      const db = getDb();
+      const prep = statementEmailsData.prepareSend(db, data);
+      const mailer = getMailer();
+      if (!mailer) throw new Error('Email sending is not set up');
+      const attempt = { donorId: data.donorId, startDate: data.startDate, endDate: data.endDate, to: prep.to, sentBy: getUserName() };
+      try {
+        const status = await mailer.send({
+          to: prep.to,
+          subject: prep.subject,
+          bodyText: data.body,
+          attachments: [{ filename: prep.filename, contentType: 'application/pdf', contentBase64: data.pdfBase64 }],
+        });
+        if (!prep.isTest) {
+          statementEmailsData.recordAttempt(db, { ...attempt, status });
+          markDirty();
+        }
+        return { ok: true, status, to: prep.to };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : 'Send failed';
+        if (!prep.isTest) {
+          statementEmailsData.recordAttempt(db, { ...attempt, status: 'failed', error: message });
+          markDirty();
+        }
+        throw new Error(message);
+      }
+    },
   },
 
   reports: {

@@ -3,6 +3,11 @@
 import type { AppDb, OpenedDb } from './db';
 
 let current: OpenedDb | null = null;
+let userName = '';
+
+/** Display name of the person using this browser (recorded on sends). */
+export const setUserName = (n: string) => { userName = n; };
+export const getUserName = () => userName;
 const listeners = new Set<() => void>();
 
 export class DataError extends Error {
