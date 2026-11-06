@@ -1,0 +1,83 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1774035450552,
+      "tag": "0000_late_sleeper",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1774040586854,
+      "tag": "0001_typical_puma",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1774044122038,
+      "tag": "0002_brown_morlocks",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1774044943931,
+      "tag": "0003_kind_namorita",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1774098951827,
+      "tag": "0004_robust_carlie_cooper",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1774212401906,
+      "tag": "0005_lonely_sunspot",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1774304683231,
+      "tag": "0006_powerful_moira_mactaggert",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1774588800000,
+      "tag": "0007_settings_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1743897600000,
+      "tag": "0008_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1744416000000,
+      "tag": "0009_drop_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1793821358594,
+      "tag": "0010_aspiring_living_lightning",
+      "breakpoints": true
+    }
+  ]
+}

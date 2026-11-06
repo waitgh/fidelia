@@ -1,0 +1,1 @@
+ALTER TABLE `donors` ADD `chinese_name` text;

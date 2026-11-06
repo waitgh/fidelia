@@ -1,0 +1,1 @@
+ALTER TABLE `donors` ADD `congregation` text;

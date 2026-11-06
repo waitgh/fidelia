@@ -1,0 +1,1 @@
+ALTER TABLE `offerings` ADD `fee_amount` real;

@@ -1,0 +1,1 @@
+ALTER TABLE `donors` ADD `spouse_name` text;
