@@ -92,3 +92,14 @@ describe('trends', () => {
     expect(() => R.trends(db, 'daily' as any, '2026-01-01', '2026-01-31')).toThrow('period');
   });
 });
+
+describe('demo seed', () => {
+  it('produces a consistent dataset', async () => {
+    const { seedDemo } = await import('./seed');
+    const fresh = (await openDatabase()).db;
+    seedDemo(fresh, 2026);
+    const s = R.congregationSummary(fresh, '2026-01-01', '2026-12-31');
+    expect(s.grandTotal).toBeGreaterThan(0);
+    expect(s.congregations.reduce((a, c) => a + c.totalAmount, 0)).toBeCloseTo(s.grandTotal, 6);
+  });
+});
