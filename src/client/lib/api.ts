@@ -7,6 +7,7 @@ import * as donorsData from '../data/donors';
 import * as batchesData from '../data/batches';
 import * as offeringsData from '../data/offerings';
 import * as pledgesData from '../data/pledges';
+import * as settingsData from '../data/settings';
 
 const BASE_URL = '/api';
 
@@ -180,12 +181,8 @@ export const api = {
   },
 
   settings: {
-    getAll: () => request<Record<string, unknown>>('/settings'),
-    update: (key: string, value: unknown) =>
-      request<{ ok: boolean }>(`/settings/${key}`, {
-        method: 'PUT',
-        body: JSON.stringify({ value }),
-      }),
+    getAll: () => read((db) => settingsData.getAllSettings(db)),
+    update: (key: string, value: unknown) => write((db) => settingsData.updateSetting(db, key, value)),
   },
 
   auditLog: {
