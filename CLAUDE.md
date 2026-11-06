@@ -47,9 +47,6 @@ The old server code is the reference for business logic. Port it from `the old s
 - Roles (admin/bookkeeper/viewer) can only be enforced in the UI or at the storage layer, not by a server.
 - Mobile: use redirect OAuth flows (not pop-ups), provide tap-to-pick alongside drag-and-drop, and treat local browser storage as a cache only.
 
-## Not yet ported (still server-era, to be replaced)
+## Status
 
-- `src/client/lib/api.ts`, `src/client/lib/auth.tsx`: still call the old `/api` backend
-- `src/client/pages/Sync.tsx`, `src/client/components/SyncSetup.tsx`: rclone sync UI, to be replaced by storage adapters
-- `src/client/pages/Login.tsx`, `src/client/pages/Users.tsx`: JWT login and user management, to be replaced by key unwrapping and invites
-- `src/shared/config/app-config.ts`: congregation names and other church-specific options, to become per-church settings
+All pages run on the local data layer; there is no `/api` backend any more. Progress, defaults chosen for open decisions, and blockers are in [docs/progress.md](docs/progress.md). Not ported: the audit log (old app kept it in a separate DB) and Dropbox storage.
