@@ -40,7 +40,8 @@ type Step =
   | { s: 'unlock'; adapter: StorageAdapter }
   | { s: 'recover'; adapter: StorageAdapter }
   | { s: 'claim'; church: Church }
-  | { s: 'create'; adapter: StorageAdapter }
+  /** `getAdapter` runs only when the form is submitted, so backing out leaves nothing behind. */
+  | { s: 'create'; label: string; getAdapter: () => Promise<StorageAdapter> }
   | { s: 'recoveryKey'; church: Church; key: string };
 
 function Shell({ children }: { children: ReactNode }) {
@@ -212,7 +213,7 @@ export function Login() {
           onClick={() => a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.open() }))} />
         <Choice icon={<PlusCircle className="h-5 w-5" />} title="Set up a new church" disabled={!fileSupported}
           text="Create a new encrypted church file."
-          onClick={() => a.run(async () => go({ s: 'create', adapter: await LocalFileAdapter.create() }))} />
+          onClick={() => a.run(async () => { const ad = await LocalFileAdapter.create(); go({ s: 'create', label: ad.describe(), getAdapter: async () => ad }); })} />
         <Choice icon={<PlayCircle className="h-5 w-5" />} title="Try the demo" text="Explore with sample data. Nothing is saved."
           onClick={() => a.run(async () => {
             const { church } = await Church.create(new MemoryAdapter(), { churchName: '', username: 'demo', displayName: 'Demo Admin', password: 'demo-password' });
@@ -246,7 +247,7 @@ export function Login() {
           <p className="text-sm text-gray-600">No church files yet. If someone shared the church file with you, open it in Google Drive and choose <b>Open with → Fidelia Ledger</b>.</p>
         )}
         <button type="button" className="btn-secondary w-full" disabled={a.busy}
-          onClick={() => a.run(async () => go({ s: 'create', adapter: await GoogleDriveAdapter.create(getGoogleToken, 'Church.fidelia') }))}>
+          onClick={() => go({ s: 'create', label: 'Google Drive: Church.fidelia', getAdapter: () => GoogleDriveAdapter.create(getGoogleToken, 'Church.fidelia') })}>
           <PlusCircle className="h-4 w-4" /> Set up a new church in Drive</button>
         <Back onClick={() => go({ s: 'start' })} />
       </Shell>
@@ -271,7 +272,7 @@ export function Login() {
             ))}
           </ul>
         ) : <p className="text-sm text-gray-600">No church files found in your Dropbox.</p>}
-        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); go({ s: 'create', adapter: new DropboxAdapter(newPath.endsWith('.fidelia') ? newPath : `${newPath}.fidelia`) }); }}>
+        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); const ad = new DropboxAdapter(newPath.endsWith('.fidelia') ? newPath : `${newPath}.fidelia`); go({ s: 'create', label: ad.describe(), getAdapter: async () => ad }); }}>
           <Field label="New church file location" value={newPath} onChange={setNewPath} />
           <button className="btn-secondary w-full"><PlusCircle className="h-4 w-4" /> Set up a new church in Dropbox</button>
         </form>
@@ -344,7 +345,15 @@ export function Login() {
       a.run(async () => {
         checkNewPassword();
         const importBytes = importFile ? new Uint8Array(await importFile.arrayBuffer()) : undefined;
-        const { church, recoveryKey: key } = await Church.create(step.adapter, { churchName, username, displayName, password, importBytes });
+        const adapter = await step.getAdapter();
+        let created;
+        try {
+          created = await Church.create(adapter, { churchName, username, displayName, password, importBytes });
+        } catch (err) {
+          if (adapter instanceof GoogleDriveAdapter) await adapter.discard().catch(() => {});
+          throw err;
+        }
+        const { church, recoveryKey: key } = created;
         go({ s: 'recoveryKey', church, key });
       });
     };
@@ -352,7 +361,7 @@ export function Login() {
       <Shell>
         <form onSubmit={submit} className="space-y-5">
           <Title>Set up your church</Title>
-          <p className="text-sm text-gray-500 text-center">Saving to {step.adapter.describe()}</p>
+          <p className="text-sm text-gray-500 text-center">Saving to {step.label}</p>
           <ErrorBox error={a.error} />
           <Field label="Church name" value={churchName} onChange={setChurchName} autoFocus />
           <Field label="Your name" value={displayName} onChange={setDisplayName} />

@@ -50,8 +50,19 @@ export class GoogleDriveAdapter implements StorageAdapter, LockStore {
   /** Church files this app can see (created by it, or opened through the picker). */
   static async list(getToken: GetToken): Promise<{ id: string; name: string; modifiedTime: string }[]> {
     const q = encodeURIComponent("appProperties has { key='fidelia' and value='1' } and trashed=false");
-    const res = await call(getToken, `${API}/files?q=${q}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc&pageSize=50`);
-    return (await res.json()).files ?? [];
+    const res = await call(getToken, `${API}/files?q=${q}&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime desc&pageSize=50`);
+    const files: { id: string; name: string; modifiedTime: string; size?: string }[] = (await res.json()).files ?? [];
+    // Hide empty files left behind by an older version when setup was abandoned.
+    return files.filter((f) => Number(f.size ?? 0) > 0).map(({ size: _s, ...f }) => f);
+  }
+
+  /** Moves a file that never got a church into the trash (setup failed). */
+  async discard() {
+    await call(this.getToken, `${API}/files/${this.fileId}?fields=id`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trashed: true }),
+    });
   }
 
   private async meta(): Promise<{ headRevisionId: string; size?: string; name: string }> {

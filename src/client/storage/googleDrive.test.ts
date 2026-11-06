@@ -14,6 +14,7 @@ beforeEach(() => {
     if (url.includes('alt=media') && !url.includes('revisions')) return new Response(content as BodyInit);
     if (url.includes('uploadType=media')) { content = new Uint8Array(init.body as Uint8Array); version = String(Number(version) + 1); return json({ headRevisionId: version }); }
     if (url.endsWith('/revisions?fields=revisions(id,modifiedTime,size)&pageSize=200')) return json({ revisions: [{ id: 'a', modifiedTime: 't1', size: '3' }, { id: 'b', modifiedTime: 't2', size: '4' }] });
+    if (url.includes('/files?q=')) return json({ files: [{ id: 'a', name: 'Church.fidelia', modifiedTime: 't', size: '900' }, { id: 'b', name: 'Church.fidelia', modifiedTime: 't', size: '0' }] });
     return new Response('{}', { status: 404 });
   }));
 });
@@ -38,5 +39,8 @@ describe('GoogleDriveAdapter', () => {
   it('lists previous versions newest first, excluding current', async () => {
     const v = await new GoogleDriveAdapter('F', 'c', () => 'tok').listVersions();
     expect(v).toEqual([{ id: 'a', savedAt: 't1', size: 3 }]);
+  });
+  it('lists only non-empty church files', async () => {
+    expect(await GoogleDriveAdapter.list(() => 'tok')).toEqual([{ id: 'a', name: 'Church.fidelia', modifiedTime: 't' }]);
   });
 });
