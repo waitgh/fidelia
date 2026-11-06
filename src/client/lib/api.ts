@@ -4,6 +4,8 @@ import { getDb, markDirty } from '../data/session';
 import type { AppDb } from '../data/db';
 import * as categoriesData from '../data/categories';
 import * as donorsData from '../data/donors';
+import * as batchesData from '../data/batches';
+import * as offeringsData from '../data/offerings';
 
 const BASE_URL = '/api';
 
@@ -93,32 +95,22 @@ export const api = {
   },
 
   batches: {
-    list: (params?: { limit?: number; offset?: number; description?: string }) => {
-      const p = new URLSearchParams();
-      if (params?.limit !== undefined) p.set('limit', String(params.limit));
-      if (params?.offset !== undefined) p.set('offset', String(params.offset));
-      if (params?.description) p.set('description', params.description);
-      return request<any>(`/batches?${p}`);
-    },
-    get: (id: number) => request<any>(`/batches/${id}`),
-    create: (data: any) => request<any>('/batches', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: any) => request<any>(`/batches/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: number) => request<any>(`/batches/${id}`, { method: 'DELETE' }),
-    close: (id: number) => request<any>(`/batches/${id}/close`, { method: 'POST' }),
-    reopen: (id: number) => request<any>(`/batches/${id}/reopen`, { method: 'POST' }),
+    list: (params?: { limit?: number; offset?: number; description?: string }) =>
+      read((db) => batchesData.listBatches(db, params)),
+    get: (id: number) => read((db) => batchesData.getBatch(db, id)),
+    create: (data: any) => write((db) => batchesData.createBatch(db, data)),
+    update: (id: number, data: any) => write((db) => batchesData.updateBatch(db, id, data)),
+    delete: (id: number) => write((db) => batchesData.deleteBatch(db, id)),
+    close: (id: number) => write((db) => batchesData.closeBatch(db, id)),
+    reopen: (id: number) => write((db) => batchesData.reopenBatch(db, id)),
   },
 
   offerings: {
-    list: (params?: Record<string, string>) => {
-      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-      return request<any[]>(`/offerings${qs}`);
-    },
-    create: (data: any) => request<any>('/offerings', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: any) =>
-      request<any>(`/offerings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: number) => request<any>(`/offerings/${id}`, { method: 'DELETE' }),
-    reassign: (id: number, batchId: number) =>
-      request<any>(`/offerings/${id}/reassign`, { method: 'PATCH', body: JSON.stringify({ batchId }) }),
+    list: (params?: Record<string, string>) => read((db) => offeringsData.listOfferings(db, params)),
+    create: (data: any) => write((db) => offeringsData.createOffering(db, data)),
+    update: (id: number, data: any) => write((db) => offeringsData.updateOffering(db, id, data)),
+    delete: (id: number) => write((db) => offeringsData.deleteOffering(db, id)),
+    reassign: (id: number, batchId: number) => write((db) => offeringsData.reassignOffering(db, id, batchId)),
   },
 
   pledges: {
