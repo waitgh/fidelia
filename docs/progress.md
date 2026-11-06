@@ -57,6 +57,12 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 - **Members page: "add a second admin" warning shows after import even with 2 admins** (reported 2026-11-06). Cause: `Members.tsx` counts only admins who have a password (`hasPassword`), and admins imported from the old app have none until someone sets one. The count is arguably right (that admin can't sign in yet) but the message is misleading. Fix: when admins without passwords exist, say “Set a password for <name> so they can sign in”, and add a “No password yet” badge in the list.
 
+## Under discussion (not scheduled; author will decide)
+
+- **Several people managing one Drive church:** with `drive.file` the app can't see a file someone else shared. Options discussed: Drive UI “Open with” (config only, desktop only), Google Picker on a separate page with no decrypted data (works on iPhone), auto read-only for Drive Viewers, Shared Drive support.
+- **File ownership:** recommend creating the church from a church-owned Google account.
+- **“Move church to…”** (author's Save As idea): move to another Drive account/folder, Dropbox or local file, and mark the old file retired (read-only, “moved to …”) so two live copies can't drift apart.
+
 ## Next
 
 1. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
