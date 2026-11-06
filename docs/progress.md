@@ -45,7 +45,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 - **Microsoft app registration** (needs you, only for M365 sending): Entra app, platform “Single-page application”, redirect `<origin>/oauth-callback.html`, delegated `Mail.Send`. Put the ID in `VITE_MS_CLIENT_ID`.
 - **Dropbox app key** (needs you, optional): see `.env.example`.
-- **Google OAuth client ID** (needs you): create a Google Cloud project, enable the Drive API, create an OAuth client of type “Web application”, add the site origin (and `http://localhost:5173`) as JavaScript origin and `<origin>/` as redirect URI, then put the ID in `.env.local` as `VITE_GOOGLE_CLIENT_ID` (see `.env.example`). For “Open with” from Drive, also configure the Drive UI integration with open URL `<origin>/`. Until then the Drive option is hidden; local files and demo work.
+- ~~Google OAuth client ID~~: done by the author 2026-11-06; Drive works locally. Still to confirm: Drive “Open with” (needs the Drive UI integration) and the production origin.
 
 ## Bugs
 
