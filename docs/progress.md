@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-06: Writes are refused up front in read-only sessions (viewer, newer schema, or someone else editing). Phone layout: sidebar starts icons-only under 768px; tighter padding.
+
 - 2026-11-06: Dependencies: removed unused `xlsx`; upgraded drizzle-orm 0.45 (SQL identifier advisory), drizzle-kit 0.31, react-router 7. `npm audit --omit=dev`: 0 vulnerabilities. Re-checked in the browser.
 
 - 2026-11-06: **Dropbox storage** (`storage/dropbox.ts`): PKCE redirect sign-in with refresh token (no mid-session redirects), conflict detection by Dropbox (`update` mode with rev), versions from Dropbox revisions, edit lock in a sibling `.lock` file. Needs `VITE_DROPBOX_APP_KEY`.
@@ -45,6 +47,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Next
 
-1. Mobile pass (iPhone layout of the welcome flow, sidebar, data entry).
-2. Audit log kept inside the encrypted DB (optional).
+1. Audit log kept inside the encrypted DB (optional; the old app had one).
+2. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
 3. End-to-end check with real Google/Microsoft/Dropbox accounts once client IDs exist (blocked, see above).
+
+When only blocked items remain, the scheduled auto-resume job should be cancelled.
