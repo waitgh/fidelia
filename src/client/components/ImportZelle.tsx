@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { createWorker } from 'tesseract.js';
+import { createOcrWorker } from '../lib/ocr';
 import { Upload, X, Loader2, AlertCircle, UserPlus } from 'lucide-react';
 import { DonorPicker } from './DonorPicker.js';
 import { api } from '../lib/api.js';
@@ -395,7 +395,7 @@ export function ImportZelle({ batchId, donors, categories, onDone, onClose }: Im
     setImagePreview(URL.createObjectURL(file));
 
     try {
-      const worker = await createWorker('eng');
+      const worker = await createOcrWorker();
       const { data } = await worker.recognize(file);
       await worker.terminate();
 
