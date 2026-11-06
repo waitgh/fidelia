@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { setMailer } from '../mail/types';
+import { MicrosoftMailer, msClientId } from '../mail/microsoft';
+import { GmailMailer } from '../mail/gmail';
+import { googleClientId } from '../storage/googleAuth';
 import { Mail, Send, X, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { api } from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/formatters.js';
@@ -69,6 +73,16 @@ export function EmailStatements({ startDate, endDate, template, onClose }: Props
   const [progress, setProgress] = useState({ done: 0, total: 0, failed: 0 });
   const [rowState, setRowState] = useState<Record<number, 'working' | 'done' | 'error'>>({});
   const stopRef = useRef(false);
+
+  const signInMail = async (provider: 'microsoft' | 'gmail') => {
+    setError('');
+    try {
+      setMailer(provider === 'microsoft' ? await MicrosoftMailer.signIn() : await GmailMailer.signIn());
+      setConfig(await api.statementEmails.config());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sign-in failed');
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -225,18 +239,17 @@ export function EmailStatements({ startDate, endDate, template, onClose }: Props
         </div>
 
         <div className="overflow-y-auto p-5 space-y-5">
-          {config && !config.configured && !config.dryRun && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm flex gap-2">
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <div>
-                Email sending isn't set up yet. Missing in <code>.env</code>: {config.missing.join(', ')}. See{' '}
-                <code>docs/microsoft-365-email-setup.md</code>. You can still review the list below.
+          {config && !config.configured && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm space-y-2">
+              <div className="flex gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>Sign in to the church email account that should send the statements. Emails go straight from this browser to Microsoft or Google.</div>
               </div>
-            </div>
-          )}
-          {config?.dryRun && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">
-              Dry-run mode is on: emails are saved to <code>data/outbox/</code> instead of being sent.
+              <div className="flex flex-wrap gap-2">
+                {msClientId() && <button type="button" className="btn-secondary btn-sm" onClick={() => signInMail('microsoft')}>Sign in with Microsoft 365</button>}
+                {googleClientId() && <button type="button" className="btn-secondary btn-sm" onClick={() => signInMail('gmail')}>Sign in with Gmail</button>}
+                {!msClientId() && !googleClientId() && <span>Email sign-in is not configured for this site yet.</span>}
+              </div>
             </div>
           )}
           {config?.configured && !config.dryRun && (

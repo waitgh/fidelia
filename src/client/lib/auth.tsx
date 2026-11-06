@@ -5,6 +5,7 @@ import { Church, type SaveState } from '../church/church';
 import { onDirty, setSession, setUserName } from '../data/session';
 import { AuthExpiredError, GoogleDriveAdapter } from '../storage/googleDrive';
 import { startGoogleSignIn } from '../storage/googleAuth';
+import { setMailer } from '../mail/types';
 
 export interface AuthUser {
   id: number;
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!window.confirm(`Your latest changes could not be saved: ${(e as Error).message}\n\nSign out anyway and lose them?`)) return;
     }
     church.close();
+    setMailer(null);
     setSession(null);
     setChurch(null);
     setLoggingOut(false);
