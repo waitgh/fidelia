@@ -51,9 +51,9 @@ export function Members() {
       {error && <div className="card p-3 bg-red-50 text-red-700 text-sm">{error}</div>}
       {form && (
         <form onSubmit={submit} className="card p-5 grid gap-4 sm:grid-cols-2">
-          <label><span className="label">Username</span>
+          <label><span className="label">Sign-in name <span className="font-normal text-gray-400">(what they type to sign in)</span></span>
             <input className="input" value={form.username} disabled={form.editing} required onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>
-          <label><span className="label">Name</span>
+          <label><span className="label">Full name <span className="font-normal text-gray-400">(how others see them)</span></span>
             <input className="input" value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} /></label>
           <label><span className="label">Role</span>
             <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
@@ -70,7 +70,7 @@ export function Members() {
       )}
       <div className="table-container">
         <table className="w-full text-sm">
-          <thead><tr className="text-left text-gray-500"><th className="p-3">Name</th><th className="p-3">Username</th><th className="p-3">Role</th><th className="p-3" /></tr></thead>
+          <thead><tr className="text-left text-gray-500"><th className="p-3">Full name</th><th className="p-3">Sign-in name</th><th className="p-3">Role</th><th className="p-3" /></tr></thead>
           <tbody>
             {members.map((m) => (
               <tr key={m.username} className="border-t border-gray-100">

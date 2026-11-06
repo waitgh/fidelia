@@ -185,7 +185,7 @@ export class Church {
   /** Adds a member or resets their password. Admin only (enforced in UI). */
   async setMember(m: Member, password: string) {
     const username = m.username.trim();
-    if (!username) throw new Error('Username is required');
+    if (!username) throw new Error('Sign-in name is required');
     if (password.length < 8) throw new Error('Password must be at least 8 characters');
     const header = await E.setUserPassword(this.unlocked, username, password);
     const hint = await E.usernameHint(this.churchId, username);

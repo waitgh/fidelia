@@ -67,12 +67,13 @@ const Title = ({ children }: { children: ReactNode }) => (
   <h2 className="text-xl font-semibold text-gray-900 text-center" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>{children}</h2>
 );
 
-function Field(p: { label: string; value: string; onChange: (v: string) => void; type?: string; autoComplete?: string; autoFocus?: boolean }) {
+function Field(p: { label: string; value: string; onChange: (v: string) => void; type?: string; autoComplete?: string; autoFocus?: boolean; hint?: string }) {
   return (
     <label className="block">
       <span className="label">{p.label}</span>
       <input className="input" type={p.type ?? 'text'} value={p.value} onChange={(e) => p.onChange(e.target.value)}
         autoComplete={p.autoComplete} autoFocus={p.autoFocus} required />
+      {p.hint && <span className="block text-xs text-gray-500 mt-1">{p.hint}</span>}
     </label>
   );
 }
@@ -320,7 +321,7 @@ export function Login() {
           <Title>Sign in</Title>
           <p className="text-sm text-gray-500 text-center">{step.adapter.describe()}</p>
           <ErrorBox error={a.error} />
-          <Field label="Username" value={username} onChange={setUsername} autoComplete="username" autoFocus />
+          <Field label="Sign-in name" value={username} onChange={setUsername} autoComplete="username" autoFocus />
           <Field label="Password" value={password} onChange={setPassword} type="password" autoComplete="current-password" />
           <Submit busy={a.busy}>Sign in</Submit>
           <button type="button" onClick={() => go({ s: 'recover', adapter: step.adapter })} className="text-sm text-primary-600 hover:underline w-full text-center">
@@ -359,8 +360,9 @@ export function Login() {
           <Title>Set a new password</Title>
           <p className="text-sm text-gray-600">Unlocked. Choose your username and a new password. You will be an admin.</p>
           <ErrorBox error={a.error} />
-          <Field label="Username" value={username} onChange={setUsername} autoComplete="username" autoFocus />
-          <Field label="Your name" value={displayName} onChange={setDisplayName} />
+          <Field label="Your full name" value={displayName} onChange={setDisplayName} hint="How others see you, e.g. in the Audit Log. Example: Grace Chen" autoFocus />
+          <p className="pt-2 text-sm font-medium text-gray-700 border-t border-gray-100">Your sign-in</p>
+          <Field label="Sign-in name" value={username} onChange={setUsername} autoComplete="username" hint="What you type to sign in. Short, no spaces. Example: grace" />
           <Field label="New password" value={password} onChange={setPassword} type="password" autoComplete="new-password" />
           <Field label="Repeat password" value={password2} onChange={setPassword2} type="password" autoComplete="new-password" />
           <Submit busy={a.busy}>Save and continue</Submit>
@@ -410,8 +412,9 @@ export function Login() {
               <p className="text-xs text-gray-500">You can move or rename the file in Drive later; the app will still find it. Don't copy or re-upload it.</p>
             </fieldset>
           )}
-          <Field label="Your name" value={displayName} onChange={setDisplayName} />
-          <Field label="Username" value={username} onChange={setUsername} autoComplete="username" />
+          <Field label="Your full name" value={displayName} onChange={setDisplayName} hint="How others see you, e.g. in the Audit Log. Example: Grace Chen" />
+          <p className="pt-2 text-sm font-medium text-gray-700 border-t border-gray-100">Your sign-in</p>
+          <Field label="Sign-in name" value={username} onChange={setUsername} autoComplete="username" hint="What you type to sign in. Short, no spaces. Example: grace" />
           <Field label="Password (8+ characters)" value={password} onChange={setPassword} type="password" autoComplete="new-password" />
           <Field label="Repeat password" value={password2} onChange={setPassword2} type="password" autoComplete="new-password" />
           <details className="text-sm">

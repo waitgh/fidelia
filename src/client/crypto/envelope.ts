@@ -36,7 +36,7 @@ export interface FileHeader {
 }
 
 export class WrongPasswordError extends Error {
-  constructor() { super('Wrong name or password'); }
+  constructor() { super('Wrong sign-in name or password'); }
 }
 export class NotAChurchFileError extends Error {
   constructor() { super('This is not a Fidelia church file'); }

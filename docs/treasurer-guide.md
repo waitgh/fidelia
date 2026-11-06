@@ -5,9 +5,9 @@ Fidelia keeps your church's offering records. It runs in your web browser, with 
 ## Setting up (one time)
 
 1. Open the website and choose **Google Drive** (recommended; works on iPhone) or **Set up a new church** to keep the file on this computer.
-2. Enter the church name, your name, a username and a password.
+2. Enter the church name, your name, a sign-in name and a password.
 3. **Print the recovery key** and keep it somewhere safe, like the church office safe. If every admin forgets their password, this key is the only way back in. There is no “forgot password” email.
-4. Go to **Members** and add a second admin. Each person gets their own username and password.
+4. Go to **Members** and add a second admin. Each person gets their own sign-in name and password.
 5. With Google Drive, share the church file (in Drive) with the people you added. They open it from Drive with **Open with → Fidelia Ledger**.
 
 ## Everyday use
