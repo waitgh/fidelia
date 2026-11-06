@@ -11,9 +11,8 @@ import { BatchDetail } from './pages/BatchDetail.js';
 import { Pledges } from './pages/Pledges.js';
 import { Reports } from './pages/Reports.js';
 import { Settings } from './pages/Settings.js';
-import { Sync } from './pages/Sync.js';
-import { Users } from './pages/Users.js';
-import { AuditLog } from './pages/AuditLog.js';
+import { Members } from './pages/Members.js';
+import { DataBackup } from './pages/DataBackup.js';
 import { SettingsProvider } from './lib/settings.js';
 
 function RequireRole({ roles, children }: { roles: string[]; children: React.ReactNode }) {
@@ -52,9 +51,8 @@ export function App() {
         <Route path="/settings" element={<RequireRole roles={['bookkeeper', 'admin']}><Settings /></RequireRole>} />
         <Route path="/settings/categories" element={<Navigate to="/settings" replace />} />
         <Route path="/categories" element={<Navigate to="/settings" replace />} />
-        <Route path="/sync" element={<RequireRole roles={['bookkeeper', 'admin']}><Sync /></RequireRole>} />
-        <Route path="/users" element={<RequireRole roles={['admin']}><Users /></RequireRole>} />
-        <Route path="/audit" element={<RequireRole roles={['admin']}><AuditLog /></RequireRole>} />
+        <Route path="/data" element={<DataBackup />} />
+        <Route path="/members" element={<RequireRole roles={['admin']}><Members /></RequireRole>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

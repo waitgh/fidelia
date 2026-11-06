@@ -10,6 +10,12 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-06: **App runs fully in the browser with no backend.** Verified in Chrome: demo → dashboard, donors, batches, pledges, reports, Data & Backup, Members, with no console errors.
+  - `src/client/crypto/envelope.ts`: file format `FIDELIA\x01` + JSON header (key slots) + AES-256-GCM body (gzip). PBKDF2-SHA256 600k per password slot; recovery key = 26 base32 chars. Username stored only as a salted hash hint.
+  - `src/client/church/church.ts`: create/unlock/recover, members (stored in the existing `users` table; `password_hash` now holds the slot hint), debounced autosave, integrity check before every save, version restore.
+  - New pages: Welcome (`Login.tsx`), `Members.tsx`, `DataBackup.tsx`. Removed Sync, SyncSetup, Users, AuditLog pages and all `fetch('/api')` code.
+  - Removed the Google Fonts import (third-party request).
+
 - 2026-11-06: Ported all data areas behind `api.ts` to `src/client/data/` with tests: categories, donors, batches, offerings, pledges, settings, reports (statement/congregation/dashboard/trends), statement-email recipients and send bookkeeping. `api.ts` now uses `read()`/`write()` helpers; writes call `markDirty()` (for autosave).
   - Fixed: non-Latin (Chinese) donor search used to match every donor.
   - Settings: dropped `rcloneRemote`/`backupEncryptionEnabled`; new churches start with no congregations.
@@ -24,6 +30,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Next
 
-1. Envelope encryption + recovery key (with round-trip tests).
-2. Church session: create/unlock a church file, autosave, replace Login/Sync pages.
-3. Autosave + versions, edit lock, invites, Drive/Dropbox adapters, browser email, old-DB import.
+1. Remember the last church in this browser (store file handle in IndexedDB).
+2. Google Drive adapter (`drive.file`, redirect OAuth), then Dropbox.
+3. Import an old the first church database (plain SQLite export).
+4. Autosave + versions, edit lock, invites, Drive/Dropbox adapters, browser email, old-DB import.

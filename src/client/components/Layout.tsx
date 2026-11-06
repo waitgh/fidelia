@@ -9,7 +9,6 @@ import {
   LogOut,
   Shield,
   Cog,
-  ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -26,13 +25,12 @@ const navItems = [
   { to: '/pledges', icon: HandHeart,       label: 'Pledges',      roles: ['bookkeeper', 'admin'] },
   { to: '/reports', icon: FileBarChart,    label: 'Reports',      roles: ['viewer', 'bookkeeper', 'admin'] },
   { to: '/settings',icon: Cog,            label: 'Settings',     roles: ['bookkeeper', 'admin'] },
-  { to: '/sync',    icon: CloudCog,        label: 'Backup & Sync',roles: ['bookkeeper', 'admin'] },
-  { to: '/users',   icon: Shield,          label: 'Users',        roles: ['admin'] },
-  { to: '/audit',   icon: ClipboardList,   label: 'Audit Log',    roles: ['admin'] },
+  { to: '/data',    icon: CloudCog,        label: 'Data & Backup',roles: ['viewer', 'bookkeeper', 'admin'] },
+  { to: '/members', icon: Shield,          label: 'Members',      roles: ['admin'] },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, saveState } = useAuth();
   const { churchName } = useSettings();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -133,7 +131,8 @@ export function Layout({ children }: { children: ReactNode }) {
               {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
-                  <p className="text-[10px] text-primary-400 capitalize">{user.role}</p>
+                  <p className="text-[10px] text-primary-400 capitalize">{user.role}
+                    <span className={saveState === 'error' ? 'text-red-400' : ''}> · {saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Save failed' : 'Saving…'}</span></p>
                 </div>
               )}
               <button
