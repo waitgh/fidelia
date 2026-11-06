@@ -10,6 +10,10 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-06: **Edit lock** (`church/lock.ts`): lock in the Drive file's `appProperties`, 3-min expiry, 1-min heartbeat, write-then-verify. Others get a read-only banner with “Try again”; taking the lock reloads the latest file. Save-time revision check remains the backstop.
+- 2026-11-06: **Email statements from the browser** (`mail/microsoft.ts`, `mail/gmail.ts`): popup OAuth (`public/oauth-callback.html`) so the open session survives; Microsoft = auth code + PKCE → Graph `/me/sendMail`; Gmail = `gmail.send` MIME. Sign-in buttons in the Email Statements dialog. Sending stays resumable (per-donor status in the DB).
+- 2026-11-06: **Hosting hardening**: `public/_headers` (strict CSP: scripts only from self; network only to Google/Microsoft APIs), `_redirects` SPA fallback, OCR assets self-hosted (`scripts/vendor-ocr.mjs` runs before dev/build), pages lazy-loaded (main bundle 943→373 KB).
+
 - 2026-11-06: **Google Drive storage** (`storage/googleDrive.ts`, `storage/googleAuth.ts`): redirect OAuth (implicit flow, no Google scripts, works on iPhone), `drive.file` scope, conflict check via `headRevisionId`, previous versions from Drive revisions. If sign-in expires mid-session, the *encrypted* file is parked in IndexedDB and uploaded on the next unlock. Drive “Open with → Fidelia Ledger” (`?state=`) handled for shared files.
 - 2026-11-06: **Import from the old app**: `scripts/export-old-db.mjs` writes a plain copy of the SQLite3MultipleCiphers DB (tested on an encrypted sample). “Set up a new church” accepts that file (drag-drop or tap). Old users keep name/role but need a new password from an admin.
 - 2026-11-06: Remember last church in this browser (IndexedDB: file handle or Drive file id only).
@@ -30,12 +34,12 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Blocked on
 
+- **Microsoft app registration** (needs you, only for M365 sending): Entra app, platform “Single-page application”, redirect `<origin>/oauth-callback.html`, delegated `Mail.Send`. Put the ID in `VITE_MS_CLIENT_ID`.
 - **Google OAuth client ID** (needs you): create a Google Cloud project, enable the Drive API, create an OAuth client of type “Web application”, add the site origin (and `http://localhost:5173`) as JavaScript origin and `<origin>/` as redirect URI, then put the ID in `.env.local` as `VITE_GOOGLE_CLIENT_ID` (see `.env.example`). For “Open with” from Drive, also configure the Drive UI integration with open URL `<origin>/`. Until then the Drive option is hidden; local files and demo work.
 
 ## Next
 
-1. Edit lock (one editor at a time) — Drive-file-based lock first (no server needed), Worker later if needed.
-2. Email statements from the browser (Microsoft Graph / Gmail) behind the `Mailer` interface.
-3. Hosting config: Cloudflare Pages `_headers` with strict CSP; code-split the bundle.
-4. Dropbox adapter.
-5. Autosave + versions, edit lock, invites, Drive/Dropbox adapters, browser email, old-DB import.
+1. Scrubbed “Send diagnostics” export (no PII), and friendlier error messages.
+2. Docs: treasurer setup guide, deployment guide (Cloudflare Pages + OAuth setup), update README.
+3. Dropbox adapter.
+4. Autosave + versions, edit lock, invites, Drive/Dropbox adapters, browser email, old-DB import.

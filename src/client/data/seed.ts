@@ -30,7 +30,7 @@ export function seedDemo(db: AppDb, year = new Date().getFullYear()) {
     donors.forEach((donorId, i) => {
       if ((i + m) % 4 === 3) return;
       const amount = 50 + ((i * 37 + m * 13) % 10) * 25;
-      createOffering(db, { batchId: batch, donorId, categoryId: cats[(i + m) % 3]!, amount, paymentMethod: methods[(i + m) % 4] });
+      createOffering(db, { batchId: batch, donorId, categoryId: cats[(i + m) % 3]!, amount, paymentMethod: methods[(i * 2 + m) % 4] });
     });
     createOffering(db, { batchId: batch, donorId: donors[0]!, categoryId: cats[3]!, amount: 8, paymentMethod: 'cash' });
     if (m < thisMonth) closeBatch(db, batch);
