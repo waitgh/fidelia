@@ -82,3 +82,20 @@ describe('pending saves', () => {
     expect(await pendingStore.get(again.churchId)).toBeNull();
   });
 });
+
+describe('import from old app', () => {
+  it('creates an encrypted church from a plain old database, keeping data and users', async () => {
+    const { openDatabase } = await import('../data/db');
+    const { users } = await import('../../db/schema');
+    const old = await openDatabase();
+    createDonor(old.db, { firstName: 'Old', lastName: 'Donor' });
+    old.db.insert(users).values({ username: 'treasurer', displayName: 'T', passwordHash: '$2b$bcrypt', role: 'admin' }).run();
+    old.db.insert(users).values({ username: 'viewer1', displayName: 'V', passwordHash: '$2b$bcrypt', role: 'viewer' }).run();
+    const bytes = old.raw.export();
+    const { church } = await Church.create(new MemoryAdapter(), { churchName: '', username: 'treasurer', displayName: 'Tre', password: 'password1', importBytes: bytes });
+    expect(listDonors(church.opened.db).map((d) => d.lastName)).toEqual(['Donor']);
+    expect(church.listMembers().map((m) => [m.username, m.role, m.hasPassword])).toEqual([['treasurer', 'admin', true], ['viewer1', 'viewer', false]]);
+    await Church.unlock(church.adapter, 'treasurer', 'password1');
+    await expect(Church.create(new MemoryAdapter(), { churchName: '', username: 'x', displayName: '', password: 'password1', importBytes: new Uint8Array(100) })).rejects.toThrow('encrypted');
+  });
+});

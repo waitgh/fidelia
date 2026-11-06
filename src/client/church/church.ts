@@ -27,6 +27,23 @@ export interface Member {
   role: Role;
 }
 
+/** Opens a plain SQLite file from the old app (or a new empty database). */
+async function openPlainImport(bytes?: Uint8Array): Promise<OpenedDb> {
+  if (!bytes) return openDatabase();
+  const head = new TextDecoder().decode(bytes.subarray(0, 15));
+  if (head !== 'SQLite format 3') {
+    throw new Error('This file is still encrypted or is not a database. Export a plain copy with scripts/export-old-db.mjs first.');
+  }
+  const opened = await openDatabase(bytes);
+  if (opened.readOnly) throw new Error('This database is from a newer app version.');
+  for (const t of ['donors', 'offerings', 'batches', 'categories']) {
+    if (!opened.raw.exec(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='${t}'`).length) {
+      throw new Error('This does not look like a Fidelia Ledger database.');
+    }
+  }
+  return opened;
+}
+
 export type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
 
 export class Church {
@@ -51,13 +68,18 @@ export class Church {
 
   static async create(
     adapter: StorageAdapter,
-    p: { churchName: string; username: string; displayName: string; password: string },
+    p: { churchName: string; username: string; displayName: string; password: string; importBytes?: Uint8Array },
   ): Promise<{ church: Church; recoveryKey: string }> {
     if ((await adapter.load()) !== null) throw new Error('A church file already exists here');
+    const opened = await openPlainImport(p.importBytes);
     const { unlocked, recoveryKey } = await E.createChurchKeys(p.username, p.password);
-    const opened = await openDatabase();
     const member: Member = { username: p.username.trim(), displayName: p.displayName.trim() || p.username.trim(), role: 'admin' };
-    opened.db.insert(users).values({ ...member, passwordHash: await E.usernameHint(unlocked.header.churchId, member.username) }).run();
+    const hint = await E.usernameHint(unlocked.header.churchId, member.username);
+    // Imported users keep their names and roles but have no password until an admin sets one.
+    opened.db.update(users).set({ passwordHash: '' }).run();
+    const existing = opened.db.select().from(users).where(eq(users.username, member.username)).get();
+    if (existing) opened.db.update(users).set({ ...member, isActive: true, passwordHash: hint }).where(eq(users.id, existing.id)).run();
+    else opened.db.insert(users).values({ ...member, passwordHash: hint }).run();
     if (p.churchName) updateSetting(opened.db, 'churchName', p.churchName);
     const church = new Church(adapter, unlocked, opened, member);
     await church.saveNow();

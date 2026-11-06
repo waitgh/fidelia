@@ -112,6 +112,7 @@ export function Login() {
   const [churchName, setChurchName] = useState('');
   const [recoveryKey, setRecoveryKey] = useState('');
   const [saved, setSaved] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const fileSupported = LocalFileAdapter.supported();
   const [recent, setRecentState] = useState<RecentChurch | null>(null);
   useEffect(() => { void getRecent().then(setRecentState); }, []);
@@ -289,7 +290,8 @@ export function Login() {
       e.preventDefault();
       a.run(async () => {
         checkNewPassword();
-        const { church, recoveryKey: key } = await Church.create(step.adapter, { churchName, username, displayName, password });
+        const importBytes = importFile ? new Uint8Array(await importFile.arrayBuffer()) : undefined;
+        const { church, recoveryKey: key } = await Church.create(step.adapter, { churchName, username, displayName, password, importBytes });
         go({ s: 'recoveryKey', church, key });
       });
     };
@@ -304,6 +306,18 @@ export function Login() {
           <Field label="Username" value={username} onChange={setUsername} autoComplete="username" />
           <Field label="Password (8+ characters)" value={password} onChange={setPassword} type="password" autoComplete="new-password" />
           <Field label="Repeat password" value={password2} onChange={setPassword2} type="password" autoComplete="new-password" />
+          <details className="text-sm">
+            <summary className="cursor-pointer text-gray-600">Moving from the old Fidelia Ledger app?</summary>
+            <div
+              className="mt-2 rounded-lg border-2 border-dashed border-gray-300 p-3 text-center"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); setImportFile(e.dataTransfer.files[0] ?? null); }}
+            >
+              <p className="text-xs text-gray-500 mb-2">Drop the exported plain database here, or tap to choose it.</p>
+              <input type="file" accept=".db,.sqlite,application/octet-stream" onChange={(e) => setImportFile(e.target.files?.[0] ?? null)} className="text-xs" />
+              {importFile && <p className="text-xs text-green-700 mt-1">Will import {importFile.name}</p>}
+            </div>
+          </details>
           <p className="text-xs text-gray-500">There is no “forgot password” email. Keep your recovery key safe, and add a second admin soon.</p>
           <Submit busy={a.busy}>Create church</Submit>
           <Back onClick={() => go({ s: 'start' })} />
