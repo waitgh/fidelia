@@ -56,6 +56,18 @@ export class GoogleDriveAdapter implements StorageAdapter, LockStore {
     return files.filter((f) => Number(f.size ?? 0) > 0).map(({ size: _s, ...f }) => f);
   }
 
+  /** False if the file was deleted, trashed, or is no longer accessible. */
+  async exists(): Promise<boolean> {
+    try {
+      const res = await call(this.getToken, `${API}/files/${this.fileId}?fields=trashed`);
+      return !(await res.json()).trashed;
+    } catch (e) {
+      if (e instanceof AuthExpiredError) throw e;
+      if (/error 40[34]/.test((e as Error).message)) return false;
+      throw e;
+    }
+  }
+
   /** Moves a file that never got a church into the trash (setup failed). */
   async discard() {
     await call(this.getToken, `${API}/files/${this.fileId}?fields=id`, {

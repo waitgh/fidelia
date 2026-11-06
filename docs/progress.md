@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-06: Fixed: “Continue: Google Drive” stayed after the file was deleted in Drive. Continue now checks the file exists (not trashed/404) and forgets it if not, with a message. Every Continue shortcut has a “Forget” link.
+
 - 2026-11-06: Fixed: backing out of “Set up a new church in Drive” left empty `Church.fidelia` files. The Drive file is now created only on **Create church** (and trashed if setup fails); empty leftovers are hidden from the Drive list.
 
 - 2026-11-06: **Audit log inside the encrypted file**: migration `0011_audit_log_local` (tested: fresh DBs and upgrades from older schemas), `data/auditLog.ts` (keeps newest 5000), every API write and member/recovery-key/restore action recorded with the user's name. Audit Log page restored for admins (IP column removed; date filters in local time).

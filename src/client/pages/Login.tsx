@@ -121,13 +121,24 @@ export function Login() {
   useEffect(() => { void getRecent().then(setRecentState); }, []);
   const driveConfigured = !!googleClientId();
 
-  const openDriveFile = (f: DriveFile) => go({ s: 'unlock', adapter: new GoogleDriveAdapter(f.id, f.name, getGoogleToken) });
+  const forgetRecent = () => { void setRecent(null); setRecentState(null); };
+
+  /** Opens a Drive church file after checking it still exists (it may have been deleted in Drive). */
+  const openDriveFile = (f: DriveFile) => a.run(async () => {
+    const adapter = new GoogleDriveAdapter(f.id, f.name, getGoogleToken);
+    if (!(await adapter.exists())) {
+      if (recent?.kind === 'google-drive' && String(recent.ref) === f.id) forgetRecent();
+      go({ s: 'start' });
+      throw new Error('That church file is no longer in Google Drive (it was deleted or you lost access).');
+    }
+    go({ s: 'unlock', adapter });
+  });
 
   /** Shows the Drive file list, signing in with Google first if needed (full-page redirect). */
   const openDrive = () => a.run(async () => {
     if (!getGoogleToken()) { startGoogleSignIn('/'); return; }
     const req = driveOpenRequest();
-    if (req) { sessionStorage.removeItem('fidelia.driveOpen'); openDriveFile(req); return; }
+    if (req) { sessionStorage.removeItem('fidelia.driveOpen'); await openDriveFile(req); return; }
     go({ s: 'drive', files: await GoogleDriveAdapter.list(getGoogleToken) });
   });
 
@@ -175,12 +186,18 @@ export function Login() {
   };
 
   if (step.s === 'start') {
-    const Choice = (p: { icon: ReactNode; title: string; text: string; onClick: () => void; disabled?: boolean }) => (
-      <button type="button" disabled={p.disabled || a.busy} onClick={p.onClick}
-        className="w-full flex items-start gap-3 text-left rounded-xl border border-gray-200 p-4 hover:border-primary-400 hover:bg-primary-50 disabled:opacity-50">
-        <span className="text-primary-600 mt-0.5">{p.icon}</span>
-        <span><span className="block font-medium text-gray-900">{p.title}</span><span className="block text-sm text-gray-500">{p.text}</span></span>
-      </button>
+    const Choice = (p: { icon: ReactNode; title: string; text: string; onClick: () => void; disabled?: boolean; onForget?: () => void }) => (
+      <div className="relative">
+        <button type="button" disabled={p.disabled || a.busy} onClick={p.onClick}
+          className="w-full flex items-start gap-3 text-left rounded-xl border border-gray-200 p-4 hover:border-primary-400 hover:bg-primary-50 disabled:opacity-50">
+          <span className="text-primary-600 mt-0.5">{p.icon}</span>
+          <span className={p.onForget ? 'pr-14' : ''}><span className="block font-medium text-gray-900">{p.title}</span><span className="block text-sm text-gray-500">{p.text}</span></span>
+        </button>
+        {p.onForget && (
+          <button type="button" onClick={p.onForget} title="Remove this shortcut from this browser"
+            className="absolute top-3 right-3 text-xs text-gray-400 hover:text-gray-700 underline">Forget</button>
+        )}
+      </div>
     );
     return (
       <Shell>
@@ -188,6 +205,7 @@ export function Login() {
         <ErrorBox error={a.error} />
         {recent?.kind === 'google-drive' && driveConfigured && (
           <Choice icon={<Cloud className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
+            onForget={forgetRecent}
             onClick={() => {
               const id = String(recent.ref);
               if (getGoogleToken()) openDriveFile({ id, name: recent.label.replace(/^Google Drive: /, '') });
@@ -196,6 +214,7 @@ export function Login() {
         )}
         {recent?.kind === 'local-file' && fileSupported && (
           <Choice icon={<FolderOpen className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
+            onForget={forgetRecent}
             onClick={() => a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.fromHandle(recent.ref) }))} />
         )}
         {driveConfigured && (
@@ -203,6 +222,7 @@ export function Login() {
         )}
         {recent?.kind === 'dropbox' && dropboxConfigured && (
           <Choice icon={<Cloud className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
+            onForget={forgetRecent}
             onClick={() => { sessionStorage.setItem('fidelia.dropboxOpen', String(recent.ref)); void openDropbox(); }} />
         )}
         {dropboxConfigured && (
