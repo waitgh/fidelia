@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [church, setChurch] = useState<Church | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [loggingOut, setLoggingOut] = useState(false);
+  const [, setTick] = useState(0);
   const [idleWarning, setIdleWarning] = useState(false);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!church) return;
     const offDirty = onDirty(() => church.markDirty());
-    const offState = church.onState((s) => setSaveState(s));
+    const offState = church.onState((s) => { setSession(church.opened); setSaveState(s); setTick((n) => n + 1); });
     const flush = () => {
       if (church.hasUnsavedChanges && !church.readOnly) void church.saveNow().catch(() => {});
     };
@@ -103,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [church, resetIdle, clearIdle]);
 
   const user: AuthUser | null = church?.user
-    ? { id: 0, username: church.user.username, displayName: church.user.displayName, role: church.opened.readOnly ? 'viewer' : church.user.role }
+    ? { id: 0, username: church.user.username, displayName: church.user.displayName, role: church.readOnly ? 'viewer' : church.user.role }
     : null;
 
   return (
@@ -115,6 +116,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           <button onClick={resetIdle} className="ml-1 shrink-0 rounded px-2 py-0.5 text-xs font-semibold bg-amber-700/50 hover:bg-amber-700">
             Stay signed in
           </button>
+        </div>
+      )}
+      {church?.lockedBy && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-blue-50 border-blue-300 text-blue-900">
+          <p className="text-sm"><b>{church.lockedBy.owner}</b> is editing right now, so you can only view. Reopen later to see their changes.</p>
+          <button className="btn-secondary btn-sm" onClick={() => void church.takeLock().then(() => { setSession(church.opened); setTick((n) => n + 1); })}>Try again</button>
         </div>
       )}
       {church && saveState === 'error' && church.lastError instanceof AuthExpiredError && (

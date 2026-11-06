@@ -1,6 +1,6 @@
 // Google Drive storage adapter (REST, no SDK). Moves ciphertext only.
 // Previous versions come from Drive's own revision history.
-import type { StorageAdapter, StoredVersion } from './types';
+import type { LockInfo, LockStore, StorageAdapter, StoredVersion } from './types';
 
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
@@ -27,7 +27,7 @@ async function call(getToken: GetToken, url: string, init: RequestInit = {}): Pr
   return res;
 }
 
-export class GoogleDriveAdapter implements StorageAdapter {
+export class GoogleDriveAdapter implements StorageAdapter, LockStore {
   readonly kind = 'google-drive' as const;
   /** Drive's head revision of the file when we last loaded/saved it; used to detect other writers. */
   private knownVersion: string | null = null;
@@ -79,6 +79,25 @@ export class GoogleDriveAdapter implements StorageAdapter {
       body: bytes as BodyInit,
     });
     this.knownVersion = (await res.json()).headRevisionId ?? null;
+  }
+
+  // Edit lock in the file's appProperties (each key+value must stay under 124 bytes).
+  async readLock(): Promise<LockInfo | null> {
+    const res = await call(this.getToken, `${API}/files/${this.fileId}?fields=appProperties`);
+    const p = (await res.json()).appProperties ?? {};
+    if (!p.lockToken) return null;
+    return { owner: p.lockOwner ?? 'Someone', token: p.lockToken, expiresAt: Number(p.lockExpires ?? 0) };
+  }
+
+  async writeLock(l: LockInfo | null): Promise<void> {
+    const appProperties = l
+      ? { lockOwner: l.owner.slice(0, 40), lockToken: l.token, lockExpires: String(l.expiresAt) }
+      : { lockOwner: null, lockToken: null, lockExpires: null };
+    await call(this.getToken, `${API}/files/${this.fileId}?fields=id`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ appProperties }),
+    });
   }
 
   async listVersions(): Promise<StoredVersion[]> {

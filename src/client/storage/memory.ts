@@ -1,7 +1,10 @@
-import type { StorageAdapter, StoredVersion } from './types';
+import type { LockInfo, LockStore, StorageAdapter, StoredVersion } from './types';
 
 /** In-memory adapter for tests and demo mode. Keeps the last `keep` versions. */
-export class MemoryAdapter implements StorageAdapter {
+export class MemoryAdapter implements StorageAdapter, LockStore {
+  lock: LockInfo | null = null;
+  async readLock() { return this.lock; }
+  async writeLock(l: LockInfo | null) { this.lock = l; }
   readonly kind = 'memory' as const;
   private versions: { v: StoredVersion; bytes: Uint8Array }[] = [];
   private seq = 0;

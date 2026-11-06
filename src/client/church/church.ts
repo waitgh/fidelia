@@ -4,7 +4,8 @@ import { eq } from 'drizzle-orm';
 import { users } from '../../db/schema';
 import { openDatabase, exportDatabase, type OpenedDb } from '../data/db';
 import { updateSetting } from '../data/settings';
-import type { StorageAdapter } from '../storage/types';
+import { hasLockStore, type LockInfo, type StorageAdapter } from '../storage/types';
+import { acquireLock, renewLock, releaseLock, HEARTBEAT_MS } from './lock';
 import * as E from '../crypto/envelope';
 import { AuthExpiredError } from '../storage/googleDrive';
 
@@ -52,6 +53,12 @@ export class Church {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<(s: SaveState, err?: unknown) => void>();
   state: SaveState = 'saved';
+  /** Set when someone else holds the edit lock: this session is read-only. */
+  lockedBy: LockInfo | null = null;
+  private lock: LockInfo | null = null;
+  private heartbeat: ReturnType<typeof setInterval> | null = null;
+  /** Lock settle delay; tests set 0. */
+  static lockSettleMs = 1500;
   lastError: unknown = null;
 
   private constructor(
@@ -64,7 +71,42 @@ export class Church {
   ) {}
 
   get churchId() { return this.unlocked.header.churchId; }
-  get readOnly() { return this.opened.readOnly || this.user?.role === 'viewer'; }
+  get readOnly() { return this.opened.readOnly || this.user?.role === 'viewer' || this.lockedBy !== null; }
+
+  /** Tries to become the editor. Safe to call again (e.g. "Try again" button). */
+  async takeLock(): Promise<boolean> {
+    if (!hasLockStore(this.adapter) || this.opened.readOnly || this.user?.role === 'viewer') return true;
+    const store = this.adapter;
+    const r = await acquireLock(store, this.user?.displayName ?? 'Someone', { settleMs: Church.lockSettleMs, token: this.lock?.token });
+    if (!r.ok) {
+      this.lockedBy = r.holder;
+      this.setState(this.state);
+      return false;
+    }
+    this.lock = r.lock;
+    const wasLockedOut = this.lockedBy !== null;
+    this.lockedBy = null;
+    if (wasLockedOut) {
+      // The other editor may have saved since we opened: start from the latest file.
+      const file = await this.adapter.load();
+      if (file) {
+        const fresh = await openDatabase(await E.decryptFile(this.unlocked, file));
+        this.opened.raw.close();
+        this.opened = fresh;
+      }
+    }
+    if (this.heartbeat) clearInterval(this.heartbeat);
+    this.heartbeat = setInterval(() => {
+      if (!this.lock) return;
+      renewLock(store, this.lock).then((next) => {
+        if (next) { this.lock = next; return; }
+        this.lock = null;
+        void store.readLock().then((h) => { this.lockedBy = h; this.setState(this.state); });
+      }).catch(() => { /* offline: keep trying; the lock may expire */ });
+    }, HEARTBEAT_MS);
+    this.setState(this.state);
+    return true;
+  }
 
   static async create(
     adapter: StorageAdapter,
@@ -83,6 +125,7 @@ export class Church {
     if (p.churchName) updateSetting(opened.db, 'churchName', p.churchName);
     const church = new Church(adapter, unlocked, opened, member);
     await church.saveNow();
+    await church.takeLock().catch(() => {});
     return { church, recoveryKey };
   }
 
@@ -110,6 +153,7 @@ export class Church {
       throw new E.WrongPasswordError();
     }
     const church = new Church(adapter, unlocked, opened, { username: row.username, displayName: row.displayName, role: row.role as Role });
+    await church.takeLock().catch(() => {});
     if (!church.readOnly) await church.uploadPendingIfAny().catch(() => {});
     return church;
   }
@@ -118,7 +162,7 @@ export class Church {
     const file = await Church.loadFile(adapter);
     const unlocked = await E.unlockWithRecoveryKey(E.readHeader(file), recoveryKey);
     const opened = await openDatabase(await E.decryptFile(unlocked, file));
-    return new Church(adapter, unlocked, opened, null);
+    return new Church(adapter, unlocked, opened, null); // takes the lock in claimAsAdmin
   }
 
   // ---------- members ----------
@@ -169,8 +213,10 @@ export class Church {
   /** After a recovery-key unlock: become (or create) an admin with a new password. */
   async claimAsAdmin(username: string, displayName: string, password: string) {
     const m: Member = { username: username.trim(), displayName: displayName.trim() || username.trim(), role: 'admin' };
-    await this.setMember(m, password);
     this.user = m;
+    await this.takeLock().catch(() => {});
+    if (this.lockedBy) throw new Error(`${this.lockedBy.owner} is editing right now. Try again in a few minutes.`);
+    await this.setMember(m, password);
   }
 
   async changeOwnPassword(password: string) {
@@ -210,6 +256,7 @@ export class Church {
   async saveNow(): Promise<void> {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     if (this.saving) await this.saving.catch(() => {});
+    if (this.lockedBy) throw new Error(`${this.lockedBy.owner} is editing; this window is read-only.`);
     this.dirty = false;
     this.setState('saving');
     this.saving = (async () => {
@@ -251,6 +298,9 @@ export class Church {
 
   close() {
     if (this.timer) clearTimeout(this.timer);
+    if (this.heartbeat) clearInterval(this.heartbeat);
+    if (this.lock && hasLockStore(this.adapter)) void releaseLock(this.adapter, this.lock).catch(() => {});
+    this.lock = null;
     this.opened.raw.close();
     this.unlocked.dataKey.fill(0);
   }

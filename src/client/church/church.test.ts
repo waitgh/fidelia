@@ -5,6 +5,8 @@ import { createDonor, listDonors } from '../data/donors';
 import { getAllSettings } from '../data/settings';
 import { readHeader } from '../crypto/envelope';
 
+Church.lockSettleMs = 0;
+
 const setup = () => Church.create(new MemoryAdapter(), { churchName: 'Grace', username: 'tom', displayName: 'Tom', password: 'password1' });
 
 describe('Church session', () => {
@@ -37,6 +39,8 @@ describe('Church session', () => {
     await expect(Church.unlock(church.adapter, 'vi', 'viewerpass')).rejects.toThrow();
     await expect(church.setMember({ username: 'x', displayName: '', role: 'viewer' }, 'short')).rejects.toThrow('8');
 
+    church.close();
+    await new Promise((r) => setTimeout(r, 0));
     const rec = await Church.unlockWithRecoveryKey(church.adapter, recoveryKey);
     expect(rec.user).toBeNull();
     await rec.claimAsAdmin('tom', 'Tom', 'brandnewpw');
@@ -73,6 +77,8 @@ describe('pending saves', () => {
     createDonor(church.opened.db, { firstName: 'Late', lastName: 'Edit' });
     await expect(church.saveNow()).rejects.toThrow(AuthExpiredError);
     adapter.save = realSave;
+    church.close();
+    await new Promise((r) => setTimeout(r, 0));
     const again = await Church.unlock(adapter, 'tom', 'password1');
     expect(listDonors(again.opened.db).map((d) => d.lastName)).toEqual(['Edit']);
     const reopened = await Church.unlock(new MemoryAdapter(), 'tom', 'password1').catch(() => null);
@@ -97,5 +103,25 @@ describe('import from old app', () => {
     expect(church.listMembers().map((m) => [m.username, m.role, m.hasPassword])).toEqual([['treasurer', 'admin', true], ['viewer1', 'viewer', false]]);
     await Church.unlock(church.adapter, 'treasurer', 'password1');
     await expect(Church.create(new MemoryAdapter(), { churchName: '', username: 'x', displayName: '', password: 'password1', importBytes: new Uint8Array(100) })).rejects.toThrow('encrypted');
+  });
+});
+
+describe('edit lock in a session', () => {
+  it('makes a second editor read-only until the first closes', async () => {
+    const { church } = await setup();
+    const second = await Church.unlock(church.adapter, 'tom', 'password1');
+    expect(second.readOnly).toBe(true);
+    expect(second.lockedBy?.owner).toBe('Tom');
+    await expect(second.saveNow()).rejects.toThrow('read-only');
+    church.close();
+    await new Promise((r) => setTimeout(r, 0));
+    const third = await Church.unlock(church.adapter, 'tom', 'password1'); // editor now
+    createDonor(third.opened.db, { firstName: 'New', lastName: 'Person' });
+    await third.saveNow();
+    third.close();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(await second.takeLock()).toBe(true);
+    expect(second.readOnly).toBe(false);
+    expect(listDonors(second.opened.db).map((d) => d.lastName)).toEqual(['Person']); // reloaded
   });
 });

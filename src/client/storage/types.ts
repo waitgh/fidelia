@@ -16,3 +16,19 @@ export interface StorageAdapter {
   listVersions(): Promise<StoredVersion[]>;
   loadVersion(id: string): Promise<Uint8Array>;
 }
+
+/** A lock record kept next to the church file (e.g. Drive appProperties). */
+export interface LockInfo {
+  owner: string; // display name, shown to others
+  token: string; // random per session
+  expiresAt: number; // ms epoch
+}
+
+/** Storage that can hold an edit lock. Adapters without one allow editing freely (single-device files). */
+export interface LockStore {
+  readLock(): Promise<LockInfo | null>;
+  writeLock(l: LockInfo | null): Promise<void>;
+}
+
+export const hasLockStore = (a: unknown): a is LockStore =>
+  typeof (a as LockStore)?.readLock === 'function' && typeof (a as LockStore)?.writeLock === 'function';
