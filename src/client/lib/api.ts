@@ -1,6 +1,31 @@
 import type { StatementEmailConfig, StatementEmailRecipient } from '../../shared/types/index.js';
 
+import { getDb, markDirty } from '../data/session';
+import type { AppDb } from '../data/db';
+import * as categoriesData from '../data/categories';
+import * as donorsData from '../data/donors';
+
 const BASE_URL = '/api';
+
+/** Runs a read against the open local database. */
+function read<T>(fn: (db: AppDb) => T): Promise<T> {
+  try {
+    return Promise.resolve(fn(getDb()));
+  } catch (e) {
+    return Promise.reject(e);
+  }
+}
+
+/** Runs a write against the open local database and triggers autosave. */
+function write<T>(fn: (db: AppDb) => T): Promise<T> {
+  try {
+    const r = fn(getDb());
+    markDirty();
+    return Promise.resolve(r);
+  } catch (e) {
+    return Promise.reject(e);
+  }
+}
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${url}`, {
@@ -52,29 +77,19 @@ export const api = {
   },
 
   donors: {
-    list: (search?: string, showInactive?: boolean) => {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      if (showInactive) params.set('showInactive', 'true');
-      const qs = params.toString();
-      return request<any[]>(`/donors${qs ? `?${qs}` : ''}`);
-    },
-    get: (id: number) => request<any>(`/donors/${id}`),
-    create: (data: any) => request<any>('/donors', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: any) => request<any>(`/donors/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-    delete: (id: number) => request<any>(`/donors/${id}`, { method: 'DELETE' }),
-    checkEnvelope: (envelopeNumber: string, excludeId?: number) => {
-      const params = new URLSearchParams({ envelopeNumber });
-      if (excludeId) params.set('excludeId', String(excludeId));
-      return request<{ taken: boolean }>(`/donors/check-envelope?${params}`);
-    },
+    list: (search?: string, showInactive?: boolean) => read((db) => donorsData.listDonors(db, search, showInactive)),
+    get: (id: number) => read((db) => donorsData.getDonor(db, id)),
+    create: (data: any) => write((db) => donorsData.createDonor(db, data)),
+    update: (id: number, data: any) => write((db) => donorsData.updateDonor(db, id, data)),
+    delete: (id: number) => write((db) => donorsData.deleteDonor(db, id)),
+    checkEnvelope: (envelopeNumber: string, excludeId?: number) =>
+      read((db) => donorsData.isEnvelopeTaken(db, envelopeNumber, excludeId)),
   },
 
   categories: {
-    list: () => request<any[]>('/categories'),
-    create: (data: any) => request<any>('/categories', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: number, data: any) =>
-      request<any>(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    list: () => read((db) => categoriesData.listCategories(db)),
+    create: (data: any) => write((db) => categoriesData.createCategory(db, data)),
+    update: (id: number, data: any) => write((db) => categoriesData.updateCategory(db, id, data)),
   },
 
   batches: {
