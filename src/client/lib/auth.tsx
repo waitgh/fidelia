@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { Church, type SaveState } from '../church/church';
 import { onDirty, setSession, setUserName } from '../data/session';
+import { AuthExpiredError, GoogleDriveAdapter } from '../storage/googleDrive';
+import { startGoogleSignIn } from '../storage/googleAuth';
 
 export interface AuthUser {
   id: number;
@@ -112,6 +114,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           <p className="text-sm font-medium">You'll be signed out in 1 minute due to inactivity.</p>
           <button onClick={resetIdle} className="ml-1 shrink-0 rounded px-2 py-0.5 text-xs font-semibold bg-amber-700/50 hover:bg-amber-700">
             Stay signed in
+          </button>
+        </div>
+      )}
+      {church && saveState === 'error' && church.lastError instanceof AuthExpiredError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-amber-50 border-amber-300 text-amber-900">
+          <p className="text-sm">Your Google sign-in expired. Your changes are kept safely in this browser.</p>
+          <button className="btn-primary btn-sm" onClick={() => {
+            if (church.adapter instanceof GoogleDriveAdapter) {
+              sessionStorage.setItem('fidelia.driveOpen', JSON.stringify({ id: church.adapter.fileId, name: church.adapter.describe() }));
+            }
+            church.close(); setSession(null); startGoogleSignIn('/');
+          }}>
+            Sign in again
           </button>
         </div>
       )}

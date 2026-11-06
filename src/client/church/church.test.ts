@@ -62,3 +62,23 @@ describe('Church session', () => {
     expect(listDonors(church.opened.db)).toHaveLength(0);
   });
 });
+
+describe('pending saves', () => {
+  it('parks the encrypted file when sign-in expires and uploads it on next unlock', async () => {
+    const { AuthExpiredError } = await import('../storage/googleDrive');
+    const { church } = await setup();
+    const adapter = church.adapter as MemoryAdapter;
+    const realSave = adapter.save.bind(adapter);
+    adapter.save = async () => { throw new AuthExpiredError(); };
+    createDonor(church.opened.db, { firstName: 'Late', lastName: 'Edit' });
+    await expect(church.saveNow()).rejects.toThrow(AuthExpiredError);
+    adapter.save = realSave;
+    const again = await Church.unlock(adapter, 'tom', 'password1');
+    expect(listDonors(again.opened.db).map((d) => d.lastName)).toEqual(['Edit']);
+    const reopened = await Church.unlock(new MemoryAdapter(), 'tom', 'password1').catch(() => null);
+    expect(reopened).toBeNull();
+    // uploaded: a fresh unlock straight from storage sees it too
+    const { pendingStore } = await import('./church');
+    expect(await pendingStore.get(again.churchId)).toBeNull();
+  });
+});

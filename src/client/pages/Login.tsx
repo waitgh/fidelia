@@ -1,7 +1,7 @@
 // Welcome / unlock screen: open a church file, create a new church, or try the demo.
 // Everything happens in this browser; nothing is sent to a server.
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Loader2, AlertCircle, FolderOpen, PlusCircle, PlayCircle, KeyRound, Printer } from 'lucide-react';
+import { Loader2, AlertCircle, FolderOpen, PlusCircle, PlayCircle, KeyRound, Printer, Cloud, FileLock2 } from 'lucide-react';
 import { useAuth } from '../lib/auth.js';
 import { LogoMark } from '../components/Logo.js';
 import { Church } from '../church/church';
@@ -10,9 +10,31 @@ import { LocalFileAdapter } from '../storage/localFile';
 import type { StorageAdapter } from '../storage/types';
 import { seedDemo } from '../data/seed';
 import { getRecent, setRecent, type RecentChurch } from '../storage/recent';
+import { GoogleDriveAdapter } from '../storage/googleDrive';
+import { getGoogleToken, googleClientId, startGoogleSignIn } from '../storage/googleAuth';
+
+type DriveFile = { id: string; name: string; modifiedTime?: string };
+
+/** Drive "Open with → Fidelia" lands on /?state={"ids":[...],"action":"open"}. */
+function driveOpenRequest(): DriveFile | null {
+  const raw = new URLSearchParams(location.search).get('state');
+  if (raw) {
+    history.replaceState(null, '', location.pathname);
+    try {
+      const st = JSON.parse(raw);
+      if (st.action === 'open' && st.ids?.[0]) {
+        const f = { id: String(st.ids[0]), name: 'Church file' };
+        sessionStorage.setItem('fidelia.driveOpen', JSON.stringify(f));
+        return f;
+      }
+    } catch { /* ignore */ }
+  }
+  try { return JSON.parse(sessionStorage.getItem('fidelia.driveOpen') ?? 'null'); } catch { return null; }
+}
 
 type Step =
   | { s: 'start' }
+  | { s: 'drive'; files: DriveFile[] }
   | { s: 'unlock'; adapter: StorageAdapter }
   | { s: 'recover'; adapter: StorageAdapter }
   | { s: 'claim'; church: Church }
@@ -93,11 +115,34 @@ export function Login() {
   const fileSupported = LocalFileAdapter.supported();
   const [recent, setRecentState] = useState<RecentChurch | null>(null);
   useEffect(() => { void getRecent().then(setRecentState); }, []);
+  const driveConfigured = !!googleClientId();
+
+  const openDriveFile = (f: DriveFile) => go({ s: 'unlock', adapter: new GoogleDriveAdapter(f.id, f.name, getGoogleToken) });
+
+  /** Shows the Drive file list, signing in with Google first if needed (full-page redirect). */
+  const openDrive = () => a.run(async () => {
+    if (!getGoogleToken()) { startGoogleSignIn('/'); return; }
+    const req = driveOpenRequest();
+    if (req) { sessionStorage.removeItem('fidelia.driveOpen'); openDriveFile(req); return; }
+    go({ s: 'drive', files: await GoogleDriveAdapter.list(getGoogleToken) });
+  });
+
+  // Resume after the Google redirect, or after Drive "Open with".
+  useEffect(() => {
+    const startupError = (window as any).__fideliaStartupError as string;
+    if (startupError) { a.setError(startupError); return; }
+    const resumed = sessionStorage.getItem('fidelia.resume') === 'google-drive';
+    sessionStorage.removeItem('fidelia.resume');
+    if (resumed || driveOpenRequest()) void openDrive();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Remember where this church lives, then enter it. */
   const enterAndRemember = (church: Church) => {
     if (church.adapter instanceof LocalFileAdapter) {
       void setRecent({ kind: 'local-file', label: church.adapter.describe(), ref: church.adapter.fileHandle });
+    } else if (church.adapter instanceof GoogleDriveAdapter) {
+      void setRecent({ kind: 'google-drive', label: church.adapter.describe(), ref: church.adapter.fileId });
     }
     enter(church);
   };
@@ -121,9 +166,20 @@ export function Login() {
       <Shell>
         <Title>Welcome</Title>
         <ErrorBox error={a.error} />
+        {recent?.kind === 'google-drive' && driveConfigured && (
+          <Choice icon={<Cloud className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
+            onClick={() => {
+              const id = String(recent.ref);
+              if (getGoogleToken()) openDriveFile({ id, name: recent.label.replace(/^Google Drive: /, '') });
+              else { sessionStorage.setItem('fidelia.driveOpen', JSON.stringify({ id, name: recent.label.replace(/^Google Drive: /, '') })); startGoogleSignIn('/'); }
+            }} />
+        )}
         {recent?.kind === 'local-file' && fileSupported && (
           <Choice icon={<FolderOpen className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
             onClick={() => a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.fromHandle(recent.ref) }))} />
+        )}
+        {driveConfigured && (
+          <Choice icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Open or set up a church file in your Google Drive. Works on iPhone." onClick={openDrive} />
         )}
         <Choice icon={<FolderOpen className="h-5 w-5" />} title="Open church file" disabled={!fileSupported}
           text={fileSupported ? 'Open your church’s .fidelia file on this computer.' : 'Opening local files needs Chrome or Edge on a computer.'}
@@ -139,6 +195,34 @@ export function Login() {
             enter(church);
           })} />
         <p className="text-xs text-gray-400 text-center">Your church data is encrypted in this browser. The people who run this website cannot read it.</p>
+      </Shell>
+    );
+  }
+
+  if (step.s === 'drive') {
+    return (
+      <Shell>
+        <Title>Google Drive</Title>
+        <ErrorBox error={a.error} />
+        {step.files.length > 0 ? (
+          <ul className="space-y-2">
+            {step.files.map((f) => (
+              <li key={f.id}>
+                <button type="button" onClick={() => openDriveFile(f)} className="w-full flex items-center gap-3 rounded-xl border border-gray-200 p-3 text-left hover:border-primary-400 hover:bg-primary-50">
+                  <FileLock2 className="h-5 w-5 text-primary-600" />
+                  <span><span className="block font-medium">{f.name}</span>
+                    {f.modifiedTime && <span className="block text-xs text-gray-500">Saved {new Date(f.modifiedTime).toLocaleString()}</span>}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-600">No church files yet. If someone shared the church file with you, open it in Google Drive and choose <b>Open with → Fidelia Ledger</b>.</p>
+        )}
+        <button type="button" className="btn-secondary w-full" disabled={a.busy}
+          onClick={() => a.run(async () => go({ s: 'create', adapter: await GoogleDriveAdapter.create(getGoogleToken, 'Church.fidelia') }))}>
+          <PlusCircle className="h-4 w-4" /> Set up a new church in Drive</button>
+        <Back onClick={() => go({ s: 'start' })} />
       </Shell>
     );
   }

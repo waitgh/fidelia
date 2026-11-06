@@ -6,6 +6,19 @@ import { openDatabase, exportDatabase, type OpenedDb } from '../data/db';
 import { updateSetting } from '../data/settings';
 import type { StorageAdapter } from '../storage/types';
 import * as E from '../crypto/envelope';
+import { AuthExpiredError } from '../storage/googleDrive';
+
+/** Where a not-yet-uploaded encrypted save is parked. Injected so tests can run without IndexedDB. */
+export interface PendingStore {
+  get(churchId: string): Promise<{ file: Uint8Array; savedAt: string } | null>;
+  set(churchId: string, p: { file: Uint8Array; savedAt: string } | null): Promise<void>;
+}
+const memoryPending = new Map<string, { file: Uint8Array; savedAt: string }>();
+export let pendingStore: PendingStore = {
+  get: async (id) => memoryPending.get(id) ?? null,
+  set: async (id, p) => { if (p) memoryPending.set(id, p); else memoryPending.delete(id); },
+};
+export const setPendingStore = (s: PendingStore) => { pendingStore = s; };
 
 export type Role = 'admin' | 'bookkeeper' | 'viewer';
 export interface Member {
@@ -51,10 +64,17 @@ export class Church {
     return { church, recoveryKey };
   }
 
+  /** Loads the stored file, preferring a parked (not yet uploaded) save of the same church. */
   private static async loadFile(adapter: StorageAdapter) {
     const file = await adapter.load();
     if (!file) throw new Error('No church file found at this location');
-    return file;
+    const pending = await pendingStore.get(E.readHeader(file).churchId);
+    return pending ? pending.file : file;
+  }
+
+  /** Uploads a parked save of this church, if there is one. */
+  private async uploadPendingIfAny() {
+    if (await pendingStore.get(this.churchId)) await this.saveNow();
   }
 
   static async unlock(adapter: StorageAdapter, username: string, password: string): Promise<Church> {
@@ -67,7 +87,9 @@ export class Church {
       opened.raw.close();
       throw new E.WrongPasswordError();
     }
-    return new Church(adapter, unlocked, opened, { username: row.username, displayName: row.displayName, role: row.role as Role });
+    const church = new Church(adapter, unlocked, opened, { username: row.username, displayName: row.displayName, role: row.role as Role });
+    if (!church.readOnly) await church.uploadPendingIfAny().catch(() => {});
+    return church;
   }
 
   static async unlockWithRecoveryKey(adapter: StorageAdapter, recoveryKey: string): Promise<Church> {
@@ -171,7 +193,13 @@ export class Church {
     this.saving = (async () => {
       const plain = exportDatabase(this.opened); // throws on integrity failure / newer schema
       const file = await E.encryptFile(this.unlocked, plain);
-      await this.adapter.save(file);
+      try {
+        await this.adapter.save(file);
+        await pendingStore.set(this.churchId, null);
+      } catch (e) {
+        if (e instanceof AuthExpiredError) await pendingStore.set(this.churchId, { file, savedAt: new Date().toISOString() });
+        throw e;
+      }
     })();
     try {
       await this.saving;

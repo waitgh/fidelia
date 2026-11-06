@@ -1,5 +1,5 @@
-// Remembers the last church location in this browser (IndexedDB). Stores only a
-// file handle or a cloud file reference, never church data or keys.
+// Small IndexedDB store: the last church location (file handle / cloud file id) and
+// any not-yet-uploaded save. Never plaintext church data or keys.
 const DB = 'fidelia';
 const STORE = 'recent';
 
@@ -28,10 +28,21 @@ export interface RecentChurch {
   ref: unknown;
 }
 
-export async function getRecent(): Promise<RecentChurch | null> {
-  try { return (await tx('readonly', (s) => s.get('last'))) ?? null; } catch { return null; }
+async function kvGet<T>(key: string): Promise<T | null> {
+  try { return ((await tx('readonly', (s) => s.get(key))) as T) ?? null; } catch { return null; }
 }
 
-export async function setRecent(r: RecentChurch | null) {
-  try { await tx<unknown>('readwrite', (s) => (r ? s.put(r, 'last') : s.delete('last')) as IDBRequest<unknown>); } catch { /* storage may be blocked */ }
+async function kvSet(key: string, v: unknown) {
+  try { await tx<unknown>('readwrite', (s) => (v == null ? s.delete(key) : s.put(v, key)) as IDBRequest<unknown>); } catch { /* storage may be blocked */ }
 }
+
+export const getRecent = () => kvGet<RecentChurch>('last');
+export const setRecent = (r: RecentChurch | null) => kvSet('last', r);
+
+/**
+ * Encrypted file bytes that could not be uploaded (e.g. sign-in expired). Ciphertext only.
+ * Uploaded on the next unlock of the same church.
+ */
+export interface PendingSave { file: Uint8Array; savedAt: string }
+export const getPendingSave = (churchId: string) => kvGet<PendingSave>(`pending:${churchId}`);
+export const setPendingSave = (churchId: string, p: PendingSave | null) => kvSet(`pending:${churchId}`, p);
