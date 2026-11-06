@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-06: Dependencies: removed unused `xlsx`; upgraded drizzle-orm 0.45 (SQL identifier advisory), drizzle-kit 0.31, react-router 7. `npm audit --omit=dev`: 0 vulnerabilities. Re-checked in the browser.
+
 - 2026-11-06: **Dropbox storage** (`storage/dropbox.ts`): PKCE redirect sign-in with refresh token (no mid-session redirects), conflict detection by Dropbox (`update` mode with rev), versions from Dropbox revisions, edit lock in a sibling `.lock` file. Needs `VITE_DROPBOX_APP_KEY`.
 - 2026-11-06: Scrubbed diagnostics (Data & Backup → Copy diagnostics). Docs: `docs/deploy.md`, `docs/treasurer-guide.md`, README.
 
@@ -43,7 +45,6 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Next
 
-1. Review `npm audit` advisories (old `xlsx` package) and dependency leanness.
-2. Audit log (local, inside the encrypted DB) — optional.
-3. Mobile pass (iPhone layout of the welcome flow and data entry).
+1. Audit log (local, inside the encrypted DB) — optional.
+2. Mobile pass (iPhone layout of the welcome flow and data entry).
 4. Autosave + versions, edit lock, invites, Drive/Dropbox adapters, browser email, old-DB import.

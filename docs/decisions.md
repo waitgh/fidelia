@@ -57,4 +57,4 @@ Key reasoning: whoever runs code on decrypted data can see it. So the only way t
 
 - Their Chrome won't open file-picker dialogs. When testing uploads in the browser, use drag-and-drop.
 - They prefer not to be asked for confirmation before running commands.
-- `npm install` reported advisories (likely the old `xlsx` package). Review them before going public.
+- Dependency advisories resolved 2026-11-06 (removed unused `xlsx`, upgraded drizzle-orm 0.45 and react-router 7). `npm audit --omit=dev` is clean.
