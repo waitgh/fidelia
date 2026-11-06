@@ -8,6 +8,7 @@ import * as batchesData from '../data/batches';
 import * as offeringsData from '../data/offerings';
 import * as pledgesData from '../data/pledges';
 import * as settingsData from '../data/settings';
+import * as reportsData from '../data/reports';
 
 const BASE_URL = '/api';
 
@@ -219,23 +220,16 @@ export const api = {
   },
 
   reports: {
-    dashboard: () => request<any>('/reports/dashboard'),
+    dashboard: () => read((db) => reportsData.dashboard(db)),
     donorStatement: (donorId: number, startDate: string, endDate: string) =>
-      request<any>(`/reports/donor-statement?donorId=${donorId}&startDate=${startDate}&endDate=${endDate}`),
-    congregationSummary: (startDate: string, endDate: string, congregation?: string) => {
-      const params = new URLSearchParams({ startDate, endDate });
-      if (congregation) params.set('congregation', congregation);
-      return request<any>(`/reports/congregation-summary?${params}`);
-    },
+      read((db) => reportsData.donorStatement(db, donorId, startDate, endDate)),
+    congregationSummary: (startDate: string, endDate: string, congregation?: string) =>
+      read((db) => reportsData.congregationSummary(db, startDate, endDate, congregation)),
     trends: (
       period: 'weekly' | 'monthly' | 'quarterly' | 'yearly',
       startDate: string,
       endDate: string,
       congregation?: string,
-    ) => {
-      const params = new URLSearchParams({ period, startDate, endDate });
-      if (congregation) params.set('congregation', congregation);
-      return request<any>(`/reports/trends?${params}`);
-    },
+    ) => read((db) => reportsData.trends(db, period, startDate, endDate, congregation)),
   },
 };
