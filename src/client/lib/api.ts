@@ -1,6 +1,6 @@
 import type { StatementEmailConfig, StatementEmailRecipient } from '../../shared/types/index.js';
 
-import { getDb, getUserName, markDirty } from '../data/session';
+import { assertWritable, getDb, getUserName, markDirty } from '../data/session';
 import { getMailer } from '../mail/types';
 import * as statementEmailsData from '../data/statementEmails';
 import type { AppDb } from '../data/db';
@@ -24,6 +24,7 @@ function read<T>(fn: (db: AppDb) => T): Promise<T> {
 /** Runs a write against the open local database and triggers autosave. */
 function write<T>(fn: (db: AppDb) => T): Promise<T> {
   try {
+    assertWritable();
     const r = fn(getDb());
     markDirty();
     return Promise.resolve(r);
@@ -95,6 +96,7 @@ export const api = {
       read((db) => statementEmailsData.listRecipients(db, startDate, endDate)),
     send: async (data: statementEmailsData.SendRequest) => {
       const db = getDb();
+      assertWritable();
       const prep = statementEmailsData.prepareSend(db, data);
       const mailer = getMailer();
       if (!mailer) throw new Error('Email sending is not set up');

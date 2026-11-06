@@ -2,7 +2,7 @@
 // but "logging in" now means unlocking an encrypted church file in this browser.
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { Church, type SaveState } from '../church/church';
-import { onDirty, setSession, setUserName } from '../data/session';
+import { onDirty, setReadOnlyCheck, setSession, setUserName } from '../data/session';
 import { AuthExpiredError, GoogleDriveAdapter } from '../storage/googleDrive';
 import { startGoogleSignIn } from '../storage/googleAuth';
 import { setMailer } from '../mail/types';
@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const enter = useCallback((c: Church) => {
     setSession(c.opened);
+    setReadOnlyCheck(() => c.readOnly);
     setUserName(c.user?.displayName ?? '');
     setChurch(c);
   }, []);

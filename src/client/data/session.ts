@@ -29,9 +29,17 @@ export function getDb(): AppDb {
   return getSession().db;
 }
 
+let readOnlyCheck: () => boolean = () => !!current?.readOnly;
+/** Lets the session owner add conditions (viewer role, someone else holds the edit lock). */
+export const setReadOnlyCheck = (fn: () => boolean) => { readOnlyCheck = fn; };
+
+/** Call before every write. */
+export function assertWritable() {
+  if (readOnlyCheck()) throw new DataError('Read-only: you cannot make changes right now', 403);
+}
+
 /** Call after every write. */
 export function markDirty() {
-  if (current?.readOnly) throw new DataError('This database is read-only', 403);
   listeners.forEach((l) => l());
 }
 

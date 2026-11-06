@@ -45,6 +45,6 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Next
 
-1. Audit log (local, inside the encrypted DB) — optional.
-2. Mobile pass (iPhone layout of the welcome flow and data entry).
-4. Autosave + versions, edit lock, invites, Drive/Dropbox adapters, browser email, old-DB import.
+1. Mobile pass (iPhone layout of the welcome flow, sidebar, data entry).
+2. Audit log kept inside the encrypted DB (optional).
+3. End-to-end check with real Google/Microsoft/Dropbox accounts once client IDs exist (blocked, see above).

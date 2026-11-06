@@ -32,14 +32,15 @@ const navItems = [
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout, saveState } = useAuth();
   const { churchName } = useSettings();
-  const [collapsed, setCollapsed] = useState(false);
+  // Icons-only sidebar by default on phones.
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
   const visibleNavItems = navItems.filter(
     (item) => user && item.roles.includes(user.role),
   );
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-[100dvh] overflow-hidden">
       <aside
         className={`${
           collapsed ? 'w-14' : 'w-64'
@@ -151,7 +152,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       <main id="app-main-scroll" className="flex-1 min-w-0 overflow-y-auto bg-gray-50/50">
-        <div className="p-8">{children}</div>
+        <div className="p-3 sm:p-5 md:p-8">{children}</div>
       </main>
     </div>
   );
