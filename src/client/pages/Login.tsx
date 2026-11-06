@@ -1,6 +1,6 @@
 // Welcome / unlock screen: open a church file, create a new church, or try the demo.
 // Everything happens in this browser; nothing is sent to a server.
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Loader2, AlertCircle, FolderOpen, PlusCircle, PlayCircle, KeyRound, Printer } from 'lucide-react';
 import { useAuth } from '../lib/auth.js';
 import { LogoMark } from '../components/Logo.js';
@@ -9,6 +9,7 @@ import { MemoryAdapter } from '../storage/memory';
 import { LocalFileAdapter } from '../storage/localFile';
 import type { StorageAdapter } from '../storage/types';
 import { seedDemo } from '../data/seed';
+import { getRecent, setRecent, type RecentChurch } from '../storage/recent';
 
 type Step =
   | { s: 'start' }
@@ -90,6 +91,16 @@ export function Login() {
   const [recoveryKey, setRecoveryKey] = useState('');
   const [saved, setSaved] = useState(false);
   const fileSupported = LocalFileAdapter.supported();
+  const [recent, setRecentState] = useState<RecentChurch | null>(null);
+  useEffect(() => { void getRecent().then(setRecentState); }, []);
+
+  /** Remember where this church lives, then enter it. */
+  const enterAndRemember = (church: Church) => {
+    if (church.adapter instanceof LocalFileAdapter) {
+      void setRecent({ kind: 'local-file', label: church.adapter.describe(), ref: church.adapter.fileHandle });
+    }
+    enter(church);
+  };
 
   const go = (s: Step) => { a.setError(''); setPassword(''); setPassword2(''); setStep(s); };
 
@@ -110,6 +121,10 @@ export function Login() {
       <Shell>
         <Title>Welcome</Title>
         <ErrorBox error={a.error} />
+        {recent?.kind === 'local-file' && fileSupported && (
+          <Choice icon={<FolderOpen className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
+            onClick={() => a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.fromHandle(recent.ref) }))} />
+        )}
         <Choice icon={<FolderOpen className="h-5 w-5" />} title="Open church file" disabled={!fileSupported}
           text={fileSupported ? 'Open your church’s .fidelia file on this computer.' : 'Opening local files needs Chrome or Edge on a computer.'}
           onClick={() => a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.open() }))} />
@@ -129,7 +144,7 @@ export function Login() {
   }
 
   if (step.s === 'unlock') {
-    const submit = (e: FormEvent) => { e.preventDefault(); a.run(async () => enter(await Church.unlock(step.adapter, username, password))); };
+    const submit = (e: FormEvent) => { e.preventDefault(); a.run(async () => enterAndRemember(await Church.unlock(step.adapter, username, password))); };
     return (
       <Shell>
         <form onSubmit={submit} className="space-y-5">
@@ -167,7 +182,7 @@ export function Login() {
   if (step.s === 'claim') {
     const submit = (e: FormEvent) => {
       e.preventDefault();
-      a.run(async () => { checkNewPassword(); await step.church.claimAsAdmin(username, displayName, password); enter(step.church); });
+      a.run(async () => { checkNewPassword(); await step.church.claimAsAdmin(username, displayName, password); enterAndRemember(step.church); });
     };
     return (
       <Shell>
@@ -226,7 +241,7 @@ export function Login() {
       <label className="flex items-center gap-2 text-sm text-gray-700 print:hidden">
         <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} /> I printed or saved the recovery key
       </label>
-      <button type="button" disabled={!saved} onClick={() => enter(step.church)} className="btn-primary w-full py-2.5 print:hidden">Continue</button>
+      <button type="button" disabled={!saved} onClick={() => enterAndRemember(step.church)} className="btn-primary w-full py-2.5 print:hidden">Continue</button>
     </Shell>
   );
 }

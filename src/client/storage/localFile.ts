@@ -29,6 +29,16 @@ export class LocalFileAdapter implements StorageAdapter {
 
   describe() { return this.handle.name; }
 
+  get fileHandle() { return this.handle; }
+
+  /** Re-opens a remembered handle; must be called from a click (permission prompt). */
+  static async fromHandle(h: any): Promise<LocalFileAdapter> {
+    if (h.queryPermission && (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+      if ((await h.requestPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('Permission to open the file was denied');
+    }
+    return new LocalFileAdapter(h);
+  }
+
   async load() {
     const f = await this.handle.getFile();
     if (f.size === 0) return null;
