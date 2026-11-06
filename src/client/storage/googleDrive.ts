@@ -47,6 +47,24 @@ export class GoogleDriveAdapter implements StorageAdapter, LockStore {
     return new GoogleDriveAdapter(f.id, f.name, getToken);
   }
 
+  /**
+   * Finds (or creates) a folder with this name that the app made earlier in My Drive.
+   * With the drive.file scope the app only sees folders it created, so this never
+   * picks up an unrelated folder of the same name.
+   */
+  static async ensureFolder(getToken: GetToken, name: string): Promise<string> {
+    const safe = name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const q = encodeURIComponent(`mimeType='application/vnd.google-apps.folder' and name='${safe}' and trashed=false and 'root' in parents`);
+    const found = await (await call(getToken, `${API}/files?q=${q}&fields=files(id)&pageSize=1`)).json();
+    if (found.files?.[0]?.id) return found.files[0].id;
+    const res = await call(getToken, `${API}/files?fields=id`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' }),
+    });
+    return (await res.json()).id;
+  }
+
   /** Church files this app can see (created by it, or opened through the picker). */
   static async list(getToken: GetToken): Promise<{ id: string; name: string; modifiedTime: string }[]> {
     const q = encodeURIComponent("appProperties has { key='fidelia' and value='1' } and trashed=false");

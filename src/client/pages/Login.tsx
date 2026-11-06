@@ -41,7 +41,7 @@ type Step =
   | { s: 'recover'; adapter: StorageAdapter }
   | { s: 'claim'; church: Church }
   /** `getAdapter` runs only when the form is submitted, so backing out leaves nothing behind. */
-  | { s: 'create'; label: string; getAdapter: () => Promise<StorageAdapter> }
+  | { s: 'create'; label: string; getAdapter: () => Promise<StorageAdapter>; drive?: boolean }
   | { s: 'recoveryKey'; church: Church; key: string };
 
 function Shell({ children }: { children: ReactNode }) {
@@ -144,6 +144,9 @@ export function Login() {
 
   const dropboxConfigured = !!dropboxAppKey();
   const [newPath, setNewPath] = useState('/Fidelia/Church.fidelia');
+  /** Drive folder for a new church; '' = top level of My Drive. */
+  const [driveFolder, setDriveFolder] = useState('Fidelia');
+  const [driveFileName, setDriveFileName] = useState('Church.fidelia');
   const openDropbox = () => a.run(async () => {
     if (!hasDropboxSession()) { sessionStorage.setItem('fidelia.resume', 'dropbox'); await startDropboxSignIn(); return; }
     const want = sessionStorage.getItem('fidelia.dropboxOpen');
@@ -267,7 +270,14 @@ export function Login() {
           <p className="text-sm text-gray-600">No church files yet. If someone shared the church file with you, open it in Google Drive and choose <b>Open with → Fidelia Ledger</b>.</p>
         )}
         <button type="button" className="btn-secondary w-full" disabled={a.busy}
-          onClick={() => go({ s: 'create', label: 'Google Drive: Church.fidelia', getAdapter: () => GoogleDriveAdapter.create(getGoogleToken, 'Church.fidelia') })}>
+          onClick={() => go({
+            s: 'create', drive: true, label: 'Google Drive',
+            getAdapter: async () => {
+              const name = driveFileName.trim().replace(/\.fidelia$/i, '') + '.fidelia';
+              const parent = driveFolder.trim() ? await GoogleDriveAdapter.ensureFolder(getGoogleToken, driveFolder.trim()) : undefined;
+              return GoogleDriveAdapter.create(getGoogleToken, name, parent);
+            },
+          })}>
           <PlusCircle className="h-4 w-4" /> Set up a new church in Drive</button>
         <Back onClick={() => go({ s: 'start' })} />
       </Shell>
@@ -384,6 +394,22 @@ export function Login() {
           <p className="text-sm text-gray-500 text-center">Saving to {step.label}</p>
           <ErrorBox error={a.error} />
           <Field label="Church name" value={churchName} onChange={setChurchName} autoFocus />
+          {step.drive && (
+            <fieldset className="rounded-lg border border-gray-200 p-3 space-y-2 text-sm">
+              <legend className="px-1 text-gray-600">Where in your Google Drive</legend>
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={driveFolder !== ''} onChange={() => setDriveFolder('Fidelia')} /> In a folder named
+                <input className="input py-1 flex-1" value={driveFolder} disabled={driveFolder === ''} onChange={(e) => setDriveFolder(e.target.value)} />
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={driveFolder === ''} onChange={() => setDriveFolder('')} /> At the top of My Drive
+              </label>
+              <label className="flex items-center gap-2">File name
+                <input className="input py-1 flex-1" value={driveFileName} onChange={(e) => setDriveFileName(e.target.value)} />
+              </label>
+              <p className="text-xs text-gray-500">You can move or rename the file in Drive later; the app will still find it. Don't copy or re-upload it.</p>
+            </fieldset>
+          )}
           <Field label="Your name" value={displayName} onChange={setDisplayName} />
           <Field label="Username" value={username} onChange={setUsername} autoComplete="username" />
           <Field label="Password (8+ characters)" value={password} onChange={setPassword} type="password" autoComplete="new-password" />

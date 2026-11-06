@@ -15,6 +15,8 @@ beforeEach(() => {
     if (url.includes('uploadType=media')) { content = new Uint8Array(init.body as Uint8Array); version = String(Number(version) + 1); return json({ headRevisionId: version }); }
     if (url.endsWith('/revisions?fields=revisions(id,modifiedTime,size)&pageSize=200')) return json({ revisions: [{ id: 'a', modifiedTime: 't1', size: '3' }, { id: 'b', modifiedTime: 't2', size: '4' }] });
     if (url.includes('fields=trashed')) return url.includes('/files/GONE') ? new Response('{}', { status: 404 }) : json({ trashed: url.includes('/files/TRASH') });
+    if (url.includes('vnd.google-apps.folder') && url.includes('/files?q=')) return json({ files: decodeURIComponent(url).includes("name='Existing'") ? [{ id: 'FOLD1' }] : [] });
+    if (url.endsWith('/files?fields=id') && init.method === 'POST') return json({ id: 'NEWFOLD', body: init.body });
     if (url.includes('/files?q=')) return json({ files: [{ id: 'a', name: 'Church.fidelia', modifiedTime: 't', size: '900' }, { id: 'b', name: 'Church.fidelia', modifiedTime: 't', size: '0' }] });
     return new Response('{}', { status: 404 });
   }));
@@ -48,5 +50,10 @@ describe('GoogleDriveAdapter', () => {
     expect(await new GoogleDriveAdapter('F', 'c', () => 'tok').exists()).toBe(true);
     expect(await new GoogleDriveAdapter('TRASH', 'c', () => 'tok').exists()).toBe(false);
     expect(await new GoogleDriveAdapter('GONE', 'c', () => 'tok').exists()).toBe(false);
+  });
+  it('reuses an existing app folder or creates one', async () => {
+    expect(await GoogleDriveAdapter.ensureFolder(() => 'tok', 'Existing')).toBe('FOLD1');
+    expect(await GoogleDriveAdapter.ensureFolder(() => 'tok', "Grace's")).toBe('NEWFOLD');
+    expect(decodeURIComponent(calls.find((c) => c.includes("Grace"))!)).toContain("name='Grace\\'s'");
   });
 });
