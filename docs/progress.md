@@ -56,4 +56,4 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 1. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
 2. End-to-end check with real Google/Microsoft/Dropbox accounts once client IDs exist (blocked, see above).
 
-When only blocked items remain, the scheduled auto-resume job should be cancelled.
+The auto-resume job was cancelled on 2026-11-06 because only items needing the author remain (plus the Members bug, held at the author's request).
