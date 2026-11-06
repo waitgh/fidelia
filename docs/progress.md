@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-06: **Audit log inside the encrypted file**: migration `0011_audit_log_local` (tested: fresh DBs and upgrades from older schemas), `data/auditLog.ts` (keeps newest 5000), every API write and member/recovery-key/restore action recorded with the user's name. Audit Log page restored for admins (IP column removed; date filters in local time).
+
 - 2026-11-06: Writes are refused up front in read-only sessions (viewer, newer schema, or someone else editing). Phone layout: sidebar starts icons-only under 768px; tighter padding.
 
 - 2026-11-06: Dependencies: removed unused `xlsx`; upgraded drizzle-orm 0.45 (SQL identifier advisory), drizzle-kit 0.31, react-router 7. `npm audit --omit=dev`: 0 vulnerabilities. Re-checked in the browser.
@@ -51,8 +53,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Next
 
-1. Audit log kept inside the encrypted DB (optional; the old app had one).
-2. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
-3. End-to-end check with real Google/Microsoft/Dropbox accounts once client IDs exist (blocked, see above).
+1. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
+2. End-to-end check with real Google/Microsoft/Dropbox accounts once client IDs exist (blocked, see above).
 
 When only blocked items remain, the scheduled auto-resume job should be cancelled.

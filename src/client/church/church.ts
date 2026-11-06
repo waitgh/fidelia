@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { users } from '../../db/schema';
 import { openDatabase, exportDatabase, type OpenedDb } from '../data/db';
 import { updateSetting } from '../data/settings';
+import { writeAudit } from '../data/auditLog';
 import { hasLockStore, type LockInfo, type StorageAdapter } from '../storage/types';
 import { acquireLock, renewLock, releaseLock, HEARTBEAT_MS } from './lock';
 import * as E from '../crypto/envelope';
@@ -165,6 +166,10 @@ export class Church {
     return new Church(adapter, unlocked, opened, null); // takes the lock in claimAsAdmin
   }
 
+  private audit(action: string, detail?: string) {
+    writeAudit(this.opened.db, { username: this.user?.displayName ?? 'recovery key', action, resource: 'member', detail });
+  }
+
   // ---------- members ----------
   listMembers(): (Member & { isActive: boolean; hasPassword: boolean })[] {
     const slots = new Set(this.unlocked.header.keyslots.map((s) => s.hint));
@@ -193,6 +198,7 @@ export class Church {
       this.opened.db.insert(users).values({ username, displayName: m.displayName || username, role: m.role, passwordHash: hint }).run();
     }
     this.unlocked = { ...this.unlocked, header };
+    this.audit(existing ? 'reset_member_password' : 'add_member', `${username} (${m.role})`);
     await this.saveNow();
   }
 
@@ -200,6 +206,7 @@ export class Church {
     this.opened.db.update(users)
       .set({ role, ...(displayName ? { displayName } : {}), updatedAt: new Date().toISOString() })
       .where(eq(users.username, username)).run();
+    this.audit('change_member_role', `${username} → ${role}`);
     await this.saveNow();
   }
 
@@ -207,6 +214,7 @@ export class Church {
     if (username === this.user?.username) throw new Error("You can't remove yourself");
     this.unlocked = { ...this.unlocked, header: await E.removeUser(this.unlocked, username) };
     this.opened.db.update(users).set({ isActive: false, passwordHash: '' }).where(eq(users.username, username)).run();
+    this.audit('remove_member', username);
     await this.saveNow();
   }
 
@@ -227,6 +235,7 @@ export class Church {
   async rotateRecoveryKey(): Promise<string> {
     const { header, recoveryKey } = await E.rotateRecoveryKey(this.unlocked);
     this.unlocked = { ...this.unlocked, header };
+    this.audit('new_recovery_key');
     await this.saveNow();
     return recoveryKey;
   }
@@ -293,6 +302,7 @@ export class Church {
     const prev = await this.loadVersion(id);
     this.opened.raw.close();
     this.opened = prev;
+    this.audit('restore_version', id);
     await this.saveNow();
   }
 

@@ -9,6 +9,7 @@ import {
   LogOut,
   Shield,
   Cog,
+  ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ const navItems = [
   { to: '/settings',icon: Cog,            label: 'Settings',     roles: ['bookkeeper', 'admin'] },
   { to: '/data',    icon: CloudCog,        label: 'Data & Backup',roles: ['viewer', 'bookkeeper', 'admin'] },
   { to: '/members', icon: Shield,          label: 'Members',      roles: ['admin'] },
+  { to: '/audit',   icon: ClipboardList,   label: 'Audit Log',    roles: ['admin'] },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {

@@ -16,6 +16,7 @@ const BatchDetail = page('BatchDetail', () => import('./pages/BatchDetail.js'));
 const Pledges = page('Pledges', () => import('./pages/Pledges.js'));
 const Reports = page('Reports', () => import('./pages/Reports.js'));
 const Settings = page('Settings', () => import('./pages/Settings.js'));
+const AuditLog = page('AuditLog', () => import('./pages/AuditLog.js'));
 const Members = page('Members', () => import('./pages/Members.js'));
 const DataBackup = page('DataBackup', () => import('./pages/DataBackup.js'));
 
@@ -57,6 +58,7 @@ export function App() {
         <Route path="/settings/categories" element={<Navigate to="/settings" replace />} />
         <Route path="/categories" element={<Navigate to="/settings" replace />} />
         <Route path="/data" element={<DataBackup />} />
+        <Route path="/audit" element={<RequireRole roles={['admin']}><AuditLog /></RequireRole>} />
         <Route path="/members" element={<RequireRole roles={['admin']}><Members /></RequireRole>} />
 
         <Route path="*" element={<Navigate to="/" replace />} />

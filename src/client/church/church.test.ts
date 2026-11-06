@@ -125,3 +125,16 @@ describe('edit lock in a session', () => {
     expect(listDonors(second.opened.db).map((d) => d.lastName)).toEqual(['Person']); // reloaded
   });
 });
+
+describe('audit trail for members', () => {
+  it('records member changes inside the encrypted file', async () => {
+    const { listAudit } = await import('../data/auditLog');
+    const { church } = await setup();
+    await church.setMember({ username: 'bk', displayName: 'Bea', role: 'bookkeeper' }, 'password22');
+    await church.updateMemberRole('bk', 'viewer');
+    await church.removeMember('bk');
+    const again = await Church.unlock(church.adapter, 'tom', 'password1');
+    expect(listAudit(again.opened.db).rows.map((r) => r.action)).toEqual(['remove_member', 'change_member_role', 'add_member']);
+    expect(listAudit(again.opened.db).rows[0]!.username).toBe('Tom');
+  });
+});

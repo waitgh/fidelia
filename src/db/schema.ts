@@ -167,3 +167,22 @@ export const statementEmails = sqliteTable(
     donorPeriodIdx: index('idx_statement_emails_donor_period').on(table.donorId, table.periodStart, table.periodEnd),
   }),
 );
+
+/** Who changed what, kept inside the encrypted church file. Pruned to the most recent entries. */
+export const auditLog = sqliteTable(
+  'audit_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    at: text('at')
+      .notNull()
+      .default(sql`(datetime('now'))`),
+    username: text('username').notNull(),
+    action: text('action').notNull(),
+    resource: text('resource'),
+    resourceId: integer('resource_id'),
+    detail: text('detail'),
+  },
+  (table) => ({
+    atIdx: index('idx_audit_log_at').on(table.at),
+  }),
+);

@@ -49,4 +49,4 @@ The old server code is the reference for business logic. Port it from `the old s
 
 ## Status
 
-All pages run on the local data layer; there is no `/api` backend any more. Progress, defaults chosen for open decisions, and blockers are in [docs/progress.md](docs/progress.md). Not ported: the audit log (old app kept it in a separate DB) and Dropbox storage.
+All pages run on the local data layer; there is no `/api` backend any more. Progress, defaults chosen for open decisions, and blockers are in [docs/progress.md](docs/progress.md). The audit log now lives inside the encrypted church file (`audit_log` table).
