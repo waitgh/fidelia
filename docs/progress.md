@@ -45,6 +45,10 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 - **Dropbox app key** (needs you, optional): see `.env.example`.
 - **Google OAuth client ID** (needs you): create a Google Cloud project, enable the Drive API, create an OAuth client of type “Web application”, add the site origin (and `http://localhost:5173`) as JavaScript origin and `<origin>/` as redirect URI, then put the ID in `.env.local` as `VITE_GOOGLE_CLIENT_ID` (see `.env.example`). For “Open with” from Drive, also configure the Drive UI integration with open URL `<origin>/`. Until then the Drive option is hidden; local files and demo work.
 
+## Bugs
+
+- **Members page: "add a second admin" warning shows after import even with 2 admins** (reported 2026-11-06). Cause: `Members.tsx` counts only admins who have a password (`hasPassword`), and admins imported from the old app have none until someone sets one. The count is arguably right (that admin can't sign in yet) but the message is misleading. Fix: when admins without passwords exist, say “Set a password for <name> so they can sign in”, and add a “No password yet” badge in the list.
+
 ## Next
 
 1. Audit log kept inside the encrypted DB (optional; the old app had one).
