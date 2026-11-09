@@ -61,16 +61,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const onUnload = (e: BeforeUnloadEvent) => {
       if (church.hasUnsavedChanges) { flush(); e.preventDefault(); e.returnValue = ''; }
     };
+    const onPageHide = () => { church.releaseLockOnExit(); flush(); };
     document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('pagehide', flush);
+    window.addEventListener('pagehide', onPageHide);
     window.addEventListener('beforeunload', onUnload);
     return () => {
       offDirty(); offState();
       document.removeEventListener('visibilitychange', onVis);
-      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('beforeunload', onUnload);
     };
   }, [church]);
+
+  // Someone else is editing: check every 30 s and take over as soon as they leave or their lock expires.
+  const lockedOut = !!church?.lockedBy;
+  useEffect(() => {
+    if (!church || !lockedOut) return;
+    const t = setInterval(() => {
+      void church.takeLock().then((ok) => { if (ok) { setSession(church.opened); setTick((n) => n + 1); } }).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [church, lockedOut]);
 
   const logout = useCallback(async () => {
     if (!church) return;
@@ -124,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )}
       {church?.lockedBy && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-blue-50 border-blue-300 text-blue-900">
-          <p className="text-sm"><b>{church.lockedBy.owner}</b> is editing right now, so you can only view. Reopen later to see their changes.</p>
+          <p className="text-sm"><b>{church.lockedBy.owner}</b> is editing right now, so you can only view. You’ll be switched to editing automatically when they sign out or close Fidelia.</p>
           <button className="btn-secondary btn-sm" onClick={() => void church.takeLock().then(() => { setSession(church.opened); setTick((n) => n + 1); })}>Try again</button>
         </div>
       )}

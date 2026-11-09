@@ -148,6 +148,19 @@ describe('edit lock in a session', () => {
     expect(second.readOnly).toBe(false);
     expect(listDonors(second.opened.db).map((d) => d.lastName)).toEqual(['Person']); // reloaded
   });
+
+  it('closing the window with everything saved lets the next person edit at once', async () => {
+    const { church } = await setup();
+    createDonor(church.opened.db, { firstName: 'A', lastName: 'Unsaved' });
+    church.markDirty();
+    church.releaseLockOnExit(); // unsaved changes: keep the lock
+    const blocked = await Church.unlock(church.adapter, 'tom', 'password1');
+    expect(blocked.readOnly).toBe(true);
+    await church.saveNow();
+    church.releaseLockOnExit();
+    expect(await blocked.takeLock()).toBe(true);
+    expect(listDonors(blocked.opened.db).map((d) => d.lastName)).toEqual(['Unsaved']);
+  });
 });
 
 describe('audit trail for members', () => {

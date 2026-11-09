@@ -144,6 +144,17 @@ export class GoogleDriveAdapter implements StorageAdapter, LockStore {
     });
   }
 
+  releaseLockOnExit() {
+    const token = this.getToken();
+    if (!token) return;
+    void fetch(`${API}/files/${this.fileId}?fields=id`, {
+      method: 'PATCH',
+      keepalive: true,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ appProperties: { lockOwner: null, lockToken: null, lockExpires: null } }),
+    }).catch(() => {});
+  }
+
   async listVersions(): Promise<StoredVersion[]> {
     const res = await call(this.getToken, `${API}/files/${this.fileId}/revisions?fields=revisions(id,modifiedTime,size)&pageSize=200`);
     const revs: { id: string; modifiedTime: string; size?: string }[] = (await res.json()).revisions ?? [];

@@ -360,6 +360,16 @@ export class Church {
     await this.saveNow();
   }
 
+  /**
+   * The window is closing (not signing out). If everything is saved, let others edit right
+   * away instead of waiting for the lock to expire. The lock stays set here: if the page comes
+   * back from the browser's back/forward cache, the next heartbeat writes it again.
+   */
+  releaseLockOnExit() {
+    if (!this.lock || this.hasUnsavedChanges || !hasLockStore(this.adapter)) return;
+    this.adapter.releaseLockOnExit?.();
+  }
+
   close() {
     if (this.timer) clearTimeout(this.timer);
     if (this.heartbeat) clearInterval(this.heartbeat);

@@ -28,6 +28,8 @@ export interface LockInfo {
 export interface LockStore {
   readLock(): Promise<LockInfo | null>;
   writeLock(l: LockInfo | null): Promise<void>;
+  /** Page is closing: clear the lock with a `keepalive` request the browser finishes in the background. Best effort. */
+  releaseLockOnExit?(): void;
 }
 
 export const hasLockStore = (a: unknown): a is LockStore =>

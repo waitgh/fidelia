@@ -5,6 +5,7 @@ export class MemoryAdapter implements StorageAdapter, LockStore {
   lock: LockInfo | null = null;
   async readLock() { return this.lock; }
   async writeLock(l: LockInfo | null) { this.lock = l; }
+  releaseLockOnExit() { this.lock = null; }
   readonly kind = 'memory' as const;
   private versions: { v: StoredVersion; bytes: Uint8Array }[] = [];
   private seq = 0;

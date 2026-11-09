@@ -160,4 +160,19 @@ export class DropboxAdapter implements StorageAdapter, LockStore {
   async writeLock(l: LockInfo | null): Promise<void> {
     await upload(this.lockPath, new TextEncoder().encode(l ? JSON.stringify(l) : ''), { '.tag': 'overwrite' });
   }
+
+  releaseLockOnExit() {
+    const t = readTok();
+    if (!t || t.expiresAt < Date.now()) return;
+    void fetch(`${CONTENT}/files/upload`, {
+      method: 'POST',
+      keepalive: true,
+      headers: {
+        Authorization: `Bearer ${t.access}`,
+        'Content-Type': 'application/octet-stream',
+        'Dropbox-API-Arg': apiArg({ path: this.lockPath, mode: { '.tag': 'overwrite' }, autorename: false, mute: true }),
+      },
+      body: new Uint8Array(0) as BodyInit,
+    }).catch(() => {});
+  }
 }
