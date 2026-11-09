@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-09: **Invite codes** for new members. Members → Invite someone (pick a role) creates a one-time 16-character code, valid 14 days, kept as an `invite` key slot. The role and expiry are bound into the slot's AAD, so editing the header breaks it. The new person signs in, chooses "I have an invite code", then picks their own full name, sign-in name and password. The invite slot is removed when used. Admins see pending invites and can revoke them. Setting a password for someone yourself is still available. Tests in envelope.test.ts and church.test.ts.
+
 - 2026-11-09: **Choose in Google Drive** (Google Picker), on a separate page `/drive-picker.html` so Google's script never runs next to church data. Create account → Drive → "Choose a folder in Google Drive". Sign in → Drive → "Find it in Google Drive" opens a church file someone shared with you (picking grants `drive.file` access). Needs `VITE_GOOGLE_API_KEY` (project number comes from the client ID); without them the typed folder name is used. Not yet tried with a real key.
 
 - 2026-11-09: Welcome page redone as **Sign in** / **Create a church account** (demo is a small link). Sign in goes straight to the church this browser used last time ("Different church" and "Forget" links), otherwise asks where the data lives (Drive/Dropbox/this computer) and opens the file directly if only one is found. Create account is 3 steps: church and person, then where to keep the data (Drive folder choice, Dropbox path, or local file), then the password. Answers that aren't secret survive the Google/Dropbox sign-in redirect via sessionStorage; the password is never stored.

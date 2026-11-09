@@ -18,6 +18,30 @@ describe('envelope encryption', () => {
     expect(await E.decryptFile(byRk, file)).toEqual(data);
   });
 
+  it('invites: one code opens once per slot, carries a role, expires, and resists tampering', async () => {
+    const { unlocked } = await E.createChurchKeys('a', 'pw');
+    const now = Date.UTC(2026, 10, 1);
+    const { header, code, slotId } = await E.createInvite(unlocked, 'bookkeeper', now);
+    expect(code).toMatch(/^([A-Z2-9]{4}-){3}[A-Z2-9]{4}$/);
+    const file = await E.encryptFile({ ...unlocked, header }, data);
+    const h = E.readHeader(file);
+
+    const got = await E.unlockWithInvite(h, code.toLowerCase(), now + 1000);
+    expect(got.slot.id).toBe(slotId);
+    expect(got.slot.role).toBe('bookkeeper');
+    expect(await E.decryptFile(got.unlocked, file)).toEqual(data);
+
+    await expect(E.unlockWithInvite(h, E.generateInviteCode(), now)).rejects.toThrow(E.InviteError);
+    await expect(E.unlockWithInvite(h, code, now + (E.INVITE_DAYS + 1) * 86_400_000)).rejects.toThrow(/expired/);
+    // Editing the role (or expiry) in the plain header breaks the slot.
+    const tampered = { ...h, keyslots: h.keyslots.map((s) => (s.id === slotId ? { ...s, role: 'admin', expires: now * 2 } : s)) };
+    await expect(E.unlockWithInvite(tampered, code, now)).rejects.toThrow(E.InviteError);
+    // Removing the slot revokes it; password and recovery slots are untouched.
+    const revoked = E.removeSlot({ ...unlocked, header: h }, slotId);
+    await expect(E.unlockWithInvite(revoked, code, now)).rejects.toThrow(E.InviteError);
+    await E.unlockWithPassword(revoked, 'a', 'pw');
+  });
+
   it('rejects wrong password, wrong user, and wrong recovery key', async () => {
     const { unlocked } = await E.createChurchKeys('a', 'pw');
     await expect(E.unlockWithPassword(unlocked.header, 'a', 'nope')).rejects.toThrow(E.WrongPasswordError);

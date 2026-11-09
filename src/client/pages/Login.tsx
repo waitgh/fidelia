@@ -45,6 +45,9 @@ type Step =
   | { s: 'unlock'; adapter: StorageAdapter }
   | { s: 'recover'; adapter: StorageAdapter }
   | { s: 'claim'; church: Church }
+  /** New member: enter the invite code from an admin, then choose a sign-in. */
+  | { s: 'invite'; adapter: StorageAdapter }
+  | { s: 'join'; church: Church }
   /** Create account, step 1: church and person. */
   | { s: 'create' }
   /** Create account, step 2: where to keep the data. */
@@ -413,6 +416,10 @@ export function Login() {
           <button type="button" onClick={() => go({ s: 'recover', adapter: step.adapter })} className="text-sm text-primary-600 hover:underline w-full text-center">
             Forgot password? Use the recovery key
           </button>
+          <div className="rounded-lg bg-primary-50 p-3 text-sm text-center">
+            New here and no password yet?{' '}
+            <button type="button" onClick={() => go({ s: 'invite', adapter: step.adapter })} className="font-medium text-primary-700 underline">I have an invite code</button>
+          </div>
           <Back onClick={() => go({ s: 'start' })} />
         </form>
       </Shell>
@@ -430,6 +437,45 @@ export function Login() {
           <Field label="Recovery key" value={recoveryKey} onChange={setRecoveryKey} autoFocus />
           <Submit busy={a.busy}><KeyRound className="h-4 w-4" /> Unlock</Submit>
           <Back onClick={() => go({ s: 'unlock', adapter: step.adapter })} />
+        </form>
+      </Shell>
+    );
+  }
+
+  if (step.s === 'invite') {
+    const submit = (e: FormEvent) => { e.preventDefault(); a.run(async () => go({ s: 'join', church: await Church.unlockWithInvite(step.adapter, recoveryKey) })); };
+    return (
+      <Shell>
+        <form onSubmit={submit} className="space-y-5">
+          <Title>Join with an invite code</Title>
+          <p className="text-sm text-gray-600">An admin of your church gives you this code (Members → Invite someone). You’ll choose your own sign-in name and password next.</p>
+          <ErrorBox error={a.error} />
+          <Field label="Invite code" value={recoveryKey} onChange={setRecoveryKey} autoComplete="off" autoFocus hint="Looks like ABCD-EFGH-JKLM-NPQR" />
+          <Submit busy={a.busy}>Next</Submit>
+          <Back onClick={() => go({ s: 'unlock', adapter: step.adapter })} />
+        </form>
+      </Shell>
+    );
+  }
+
+  if (step.s === 'join') {
+    const role = step.church.inviteRole;
+    const submit = (e: FormEvent) => {
+      e.preventDefault();
+      a.run(async () => { checkNewPassword(); await step.church.acceptInvite(username, displayName, password); setRecoveryKey(''); enterAndRemember(step.church); });
+    };
+    return (
+      <Shell>
+        <form onSubmit={submit} className="space-y-5">
+          <Title>Welcome!</Title>
+          <p className="text-sm text-gray-600 text-center">You’re joining as {role === 'admin' ? 'an' : 'a'} <b>{role}</b>. Choose how you’ll sign in from now on.</p>
+          <ErrorBox error={a.error} />
+          <Field label="Your full name" value={displayName} onChange={setDisplayName} hint="How others see you, e.g. in the Audit Log. Example: Grace Chen" autoFocus />
+          <p className="pt-2 text-sm font-medium text-gray-700 border-t border-gray-100">Your sign-in</p>
+          <Field label="Sign-in name" value={username} onChange={setUsername} autoComplete="username" hint="What you type to sign in. Short, no spaces. Example: grace" />
+          <Field label="Password (8+ characters)" value={password} onChange={setPassword} type="password" autoComplete="new-password" />
+          <Field label="Repeat password" value={password2} onChange={setPassword2} type="password" autoComplete="new-password" />
+          <Submit busy={a.busy}>Join</Submit>
         </form>
       </Shell>
     );

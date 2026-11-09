@@ -48,6 +48,30 @@ describe('Church session', () => {
     await expect(Church.unlock(church.adapter, 'tom', 'password1')).rejects.toThrow();
   });
 
+  it('invites a member who picks their own sign-in name and password', async () => {
+    const { church } = await setup();
+    const code = await church.createInvite('bookkeeper');
+    expect(church.listInvites()).toHaveLength(1);
+    church.close();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const joining = await Church.unlockWithInvite(church.adapter, code);
+    expect(joining.user).toBeNull();
+    expect(joining.inviteRole).toBe('bookkeeper');
+    await expect(joining.acceptInvite('TOM', 'Someone', 'newperson1')).rejects.toThrow('already used');
+    await joining.acceptInvite('grace', 'Grace Chen', 'newperson1');
+    expect(joining.user?.role).toBe('bookkeeper');
+    expect(joining.listInvites()).toHaveLength(0);
+    joining.close();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const grace = await Church.unlock(church.adapter, 'grace', 'newperson1');
+    expect(grace.user).toMatchObject({ displayName: 'Grace Chen', role: 'bookkeeper' });
+    grace.close();
+    await new Promise((r) => setTimeout(r, 0));
+    await expect(Church.unlockWithInvite(church.adapter, code)).rejects.toThrow('doesn’t work'); // used up
+  });
+
   it('debounces autosave and restores previous versions', async () => {
     const { church } = await setup();
     church.saveDelayMs = 10;

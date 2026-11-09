@@ -166,6 +166,60 @@ export class Church {
     return new Church(adapter, unlocked, opened, null); // takes the lock in claimAsAdmin
   }
 
+  /** Set after unlocking with an invite code, until `acceptInvite`. */
+  private invite: E.KeySlot | null = null;
+
+  /** Opens the church with an invite code; then call `acceptInvite` with the new member's details. */
+  static async unlockWithInvite(adapter: StorageAdapter, code: string): Promise<Church> {
+    const file = await Church.loadFile(adapter);
+    const { unlocked, slot } = await E.unlockWithInvite(E.readHeader(file), code);
+    const opened = await openDatabase(await E.decryptFile(unlocked, file));
+    const church = new Church(adapter, unlocked, opened, null);
+    church.invite = slot;
+    return church;
+  }
+
+  get inviteRole(): Role | null { return (this.invite?.role as Role) ?? null; }
+
+  /** Joins with the invite: adds the member with the invite's role and uses up the invite. */
+  async acceptInvite(username: string, displayName: string, password: string) {
+    const slot = this.invite;
+    if (!slot) throw new Error('No invite');
+    const name = username.trim();
+    if (!name || /\s/.test(name)) throw new Error('Choose a sign-in name without spaces');
+    const taken = this.opened.db.select().from(users).all()
+      .some((u) => u.isActive && u.username.toLowerCase() === name.toLowerCase());
+    if (taken) throw new Error('That sign-in name is already used. Choose another.');
+    const m: Member = { username: name, displayName: displayName.trim() || name, role: (slot.role as Role) ?? 'viewer' };
+    this.user = m;
+    await this.takeLock().catch(() => {});
+    if (this.lockedBy) { this.user = null; throw new Error(`${this.lockedBy.owner} is using the church right now. Ask them to sign out, then try again.`); }
+    this.unlocked = { ...this.unlocked, header: E.removeSlot(this.unlocked, slot.id) };
+    this.invite = null;
+    this.audit('accept_invite', `${name} (${m.role})`);
+    await this.setMember(m, password);
+  }
+
+  /** Admin: creates a one-time invite code for a new member with this role. */
+  async createInvite(role: Role): Promise<string> {
+    const { header, code } = await E.createInvite(this.unlocked, role);
+    this.unlocked = { ...this.unlocked, header };
+    this.audit('invite_member', role);
+    await this.saveNow();
+    return code;
+  }
+
+  listInvites(now = Date.now()): { id: string; role: Role; expires: number; expired: boolean }[] {
+    return this.unlocked.header.keyslots.filter((s) => s.kind === 'invite')
+      .map((s) => ({ id: s.id, role: s.role as Role, expires: s.expires ?? 0, expired: (s.expires ?? 0) < now }));
+  }
+
+  async revokeInvite(id: string) {
+    this.unlocked = { ...this.unlocked, header: E.removeSlot(this.unlocked, id) };
+    this.audit('revoke_invite');
+    await this.saveNow();
+  }
+
   private audit(action: string, detail?: string) {
     writeAudit(this.opened.db, { username: this.user?.displayName ?? 'recovery key', action, resource: 'member', detail });
   }

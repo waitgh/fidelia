@@ -12,6 +12,8 @@
 const MAGIC = new Uint8Array([0x46, 0x49, 0x44, 0x45, 0x4c, 0x49, 0x41, 0x01]); // FIDELIA\x01
 export const PBKDF2_ITERATIONS = 600_000;
 const RECOVERY_ITERATIONS = 10_000; // recovery keys are 128-bit random; stretching is a formality
+const INVITE_ITERATIONS = 100_000; // invite codes are 80-bit random and short-lived
+export const INVITE_DAYS = 14;
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -19,7 +21,10 @@ const subtle = () => globalThis.crypto.subtle;
 
 export interface KeySlot {
   id: string;
-  kind: 'password' | 'recovery';
+  kind: 'password' | 'recovery' | 'invite';
+  /** Invite slots only: role the new member gets, and expiry (ms since epoch). Both are bound into the AAD. */
+  role?: string;
+  expires?: number;
   /** SHA-256(churchId:lowercased username), hex, first 16 chars. Lets us pick the slot without leaking names. */
   hint?: string;
   salt: string; // base64
@@ -101,20 +106,32 @@ export function normalizeRecoveryKey(s: string) {
   return s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+/** 80 bits as 16 characters, shown as XXXX-XXXX-XXXX-XXXX. */
+export function generateInviteCode(): string {
+  return [...randomBytes(16)].map((b) => B32[b & 31]).join('').match(/.{4}/g)!.join('-');
+}
+
 // ---------- key slots ----------
-async function makeSlot(churchId: string, dk: Uint8Array, kind: KeySlot['kind'], secret: string, hint?: string): Promise<KeySlot> {
+const slotAad = (churchId: string, s: Pick<KeySlot, 'id' | 'kind' | 'role' | 'expires'>) =>
+  `fidelia:v1:${churchId}:slot:${s.id}${s.kind === 'invite' ? `:invite:${s.role}:${s.expires}` : ''}`;
+
+async function makeSlot(
+  churchId: string, dk: Uint8Array, kind: KeySlot['kind'], secret: string, hint?: string,
+  invite?: { role: string; expires: number },
+): Promise<KeySlot> {
   const id = randomId();
   const salt = randomBytes(16);
-  const iterations = kind === 'password' ? PBKDF2_ITERATIONS : RECOVERY_ITERATIONS;
+  const iterations = kind === 'password' ? PBKDF2_ITERATIONS : kind === 'invite' ? INVITE_ITERATIONS : RECOVERY_ITERATIONS;
   const kek = await deriveKek(secret, salt, iterations);
-  const { iv, ct } = await gcmEncrypt(kek, dk, `fidelia:v1:${churchId}:slot:${id}`);
-  return { id, kind, hint, salt: b64(salt), iterations, iv: b64(iv), wrapped: b64(ct) };
+  const meta = { id, kind, ...(invite ?? {}) };
+  const { iv, ct } = await gcmEncrypt(kek, dk, slotAad(churchId, meta));
+  return { ...meta, hint, salt: b64(salt), iterations, iv: b64(iv), wrapped: b64(ct) };
 }
 
 async function openSlot(churchId: string, slot: KeySlot, secret: string): Promise<Uint8Array | null> {
   const kek = await deriveKek(secret, unb64(slot.salt), slot.iterations);
   try {
-    return await gcmDecrypt(kek, unb64(slot.iv), unb64(slot.wrapped), `fidelia:v1:${churchId}:slot:${slot.id}`);
+    return await gcmDecrypt(kek, unb64(slot.iv), unb64(slot.wrapped), slotAad(churchId, slot));
   } catch {
     return null;
   }
@@ -154,6 +171,33 @@ export async function rotateRecoveryKey(u: Unlocked): Promise<{ header: FileHead
   const recoveryKey = generateRecoveryKey();
   const slot = await makeSlot(u.header.churchId, u.dataKey, 'recovery', normalizeRecoveryKey(recoveryKey));
   return { header: { ...u.header, keyslots: [...u.header.keyslots.filter((s) => s.kind !== 'recovery'), slot] }, recoveryKey };
+}
+
+/** Adds a one-time invite slot. The code is shown once to the admin who creates it. */
+export async function createInvite(u: Unlocked, role: string, now = Date.now()): Promise<{ header: FileHeader; code: string; slotId: string }> {
+  const code = generateInviteCode();
+  const slot = await makeSlot(u.header.churchId, u.dataKey, 'invite', normalizeRecoveryKey(code), undefined, { role, expires: now + INVITE_DAYS * 86_400_000 });
+  return { header: { ...u.header, keyslots: [...u.header.keyslots, slot] }, code, slotId: slot.id };
+}
+
+export function removeSlot(u: Unlocked, slotId: string): FileHeader {
+  return { ...u.header, keyslots: u.header.keyslots.filter((s) => s.id !== slotId) };
+}
+
+export class InviteError extends Error {
+  constructor(msg = 'That invite code doesn’t work. Check it, or ask an admin for a new one.') { super(msg); this.name = 'InviteError'; }
+}
+
+/** Opens the church with an invite code. Expired or tampered invites don't open. */
+export async function unlockWithInvite(header: FileHeader, code: string, now = Date.now()): Promise<{ unlocked: Unlocked; slot: KeySlot }> {
+  const invites = header.keyslots.filter((s) => s.kind === 'invite');
+  for (const slot of invites) {
+    const dk = await openSlot(header.churchId, slot, normalizeRecoveryKey(code));
+    if (!dk) continue;
+    if ((slot.expires ?? 0) < now) throw new InviteError('That invite code has expired. Ask an admin for a new one.');
+    return { unlocked: { header, dataKey: dk }, slot };
+  }
+  throw new InviteError();
 }
 
 export async function unlockWithPassword(header: FileHeader, username: string, password: string): Promise<Unlocked> {
