@@ -218,6 +218,38 @@ export async function unlockWithRecoveryKey(header: FileHeader, recoveryKey: str
 }
 
 // ---------- file ----------
+// ---------- small sealed strings (e.g. the editor's name on the lock) ----------
+const SEALED = 'e1:';
+/** Longest name kept on the lock, in UTF-8 bytes (Drive appProperties allow ~124 bytes per key+value). */
+export const SEALED_NAME_MAX_BYTES = 30;
+
+/** Encrypts a short string with the church's data key so only members can read it. */
+export async function sealString(u: Unlocked, text: string, label: string): Promise<string> {
+  let bytes = new TextEncoder().encode(text);
+  if (bytes.length > SEALED_NAME_MAX_BYTES) {
+    // Cut on a character boundary.
+    let cut = SEALED_NAME_MAX_BYTES;
+    while (cut > 0 && (bytes[cut]! & 0xc0) === 0x80) cut--;
+    bytes = bytes.slice(0, cut);
+  }
+  const { iv, ct } = await gcmEncrypt(await aesKey(u.dataKey), bytes, `fidelia:v1:${u.header.churchId}:${label}`);
+  const out = new Uint8Array(iv.length + ct.length);
+  out.set(iv); out.set(ct, iv.length);
+  return SEALED + b64(out);
+}
+
+/** Opens a sealed string. Plain (older) values are returned as they are; unreadable ones become `fallback`. */
+export async function openString(u: Unlocked, value: string, label: string, fallback = 'Someone'): Promise<string> {
+  if (!value.startsWith(SEALED)) return value;
+  try {
+    const raw = unb64(value.slice(SEALED.length));
+    const pt = await gcmDecrypt(await aesKey(u.dataKey), raw.slice(0, 12), raw.slice(12), `fidelia:v1:${u.header.churchId}:${label}`);
+    return new TextDecoder().decode(pt);
+  } catch {
+    return fallback;
+  }
+}
+
 export function readHeader(file: Uint8Array): FileHeader {
   if (file.length < 12 || !MAGIC.every((b, i) => file[i] === b)) throw new NotAChurchFileError();
   const len = new DataView(file.buffer, file.byteOffset).getUint32(8);

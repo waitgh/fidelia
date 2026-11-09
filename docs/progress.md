@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-09: Fixed both open bugs. (1) The Members page names admins who have no password yet (e.g. imported from the old app), tells you to set one, and shows a "No password yet" badge. (2) The edit lock's editor name is now encrypted with the church data key (`sealString`/`openString`, `e1:` prefix, capped at 30 bytes to fit Drive appProperties), so only members can see who is editing. Older plain locks still display.
+
 - 2026-11-09: Drive folder chooser now shows church files too (it used to show only folders, so a folder holding the church looked empty and a duplicate got created). Picking an existing church file there opens it for sign-in. Creating a church refuses a file name that already exists in that folder.
 
 - 2026-11-09: **Closing the window releases the edit lock** when everything is saved. It uses a `keepalive` request (Drive appProperties / Dropbox `.lock`), so the next person doesn't wait 3 minutes. A read-only window now checks every 30 s and switches to editing on its own; the banner says so.
@@ -65,8 +67,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Bugs
 
-- **Members page: "add a second admin" warning shows after import even with 2 admins** (reported 2026-11-06). Cause: `Members.tsx` counts only admins who have a password (`hasPassword`), and admins imported from the old app have none until someone sets one. The count is arguably right (that admin can't sign in yet) but the message is misleading. Fix: when admins without passwords exist, say “Set a password for <name> so they can sign in”, and add a “No password yet” badge in the list.
-- **Lock shows the editor's full name in plain text** on the Drive file's appProperties (and the Dropbox `.lock` file), outside the encryption. Fix idea: store only the editor's sign-in fingerprint plus an encrypted name.
+- None open.
 
 ## Under discussion (not scheduled; author will decide)
 

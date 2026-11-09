@@ -143,7 +143,7 @@ export class GoogleDriveAdapter implements StorageAdapter, LockStore {
 
   async writeLock(l: LockInfo | null): Promise<void> {
     const appProperties = l
-      ? { lockOwner: l.owner.slice(0, 40), lockToken: l.token, lockExpires: String(l.expiresAt) }
+      ? { lockOwner: l.owner, lockToken: l.token, lockExpires: String(l.expiresAt) } // owner is sealed (encrypted) by Church
       : { lockOwner: null, lockToken: null, lockExpires: null };
     await call(this.getToken, `${API}/files/${this.fileId}?fields=id`, {
       method: 'PATCH',

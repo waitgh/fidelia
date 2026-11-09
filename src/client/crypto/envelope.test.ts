@@ -42,6 +42,21 @@ describe('envelope encryption', () => {
     await E.unlockWithPassword(revoked, 'a', 'pw');
   });
 
+  it('seals short strings for members only, within the Drive size limit', async () => {
+    const { unlocked } = await E.createChurchKeys('a', 'pw');
+    const sealed = await E.sealString(unlocked, 'Grace Chen', 'lock-owner');
+    expect(sealed).not.toContain('Grace');
+    expect(await E.openString(unlocked, sealed, 'lock-owner')).toBe('Grace Chen');
+    expect(await E.openString(unlocked, sealed, 'other-label')).toBe('Someone');
+    const other = await E.createChurchKeys('b', 'pw');
+    expect(await E.openString(other.unlocked, sealed, 'lock-owner')).toBe('Someone');
+    expect(await E.openString(unlocked, 'Old Plain Name', 'lock-owner')).toBe('Old Plain Name');
+    // Long and non-Latin names are cut on a character boundary and stay under Drive's ~124-byte limit.
+    const long = await E.sealString(unlocked, '陈'.repeat(40), 'lock-owner');
+    expect('lockOwner'.length + long.length).toBeLessThanOrEqual(124);
+    expect(await E.openString(unlocked, long, 'lock-owner')).toBe('陈'.repeat(10));
+  });
+
   it('rejects wrong password, wrong user, and wrong recovery key', async () => {
     const { unlocked } = await E.createChurchKeys('a', 'pw');
     await expect(E.unlockWithPassword(unlocked.header, 'a', 'nope')).rejects.toThrow(E.WrongPasswordError);

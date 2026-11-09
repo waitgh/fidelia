@@ -136,6 +136,10 @@ describe('edit lock in a session', () => {
     const second = await Church.unlock(church.adapter, 'tom', 'password1');
     expect(second.readOnly).toBe(true);
     expect(second.lockedBy?.owner).toBe('Tom');
+    // Stored next to the file, the name is encrypted.
+    const stored = (church.adapter as MemoryAdapter).lock!;
+    expect(stored.owner).not.toContain('Tom');
+    expect(stored.owner.startsWith('e1:')).toBe(true);
     await expect(second.saveNow()).rejects.toThrow('read-only');
     church.close();
     await new Promise((r) => setTimeout(r, 0));

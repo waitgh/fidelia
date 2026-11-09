@@ -28,6 +28,9 @@ export function Members() {
       : { share: 'Give them a copy of the church file, or put it somewhere you both can reach.', find: 'Sign in → A file on this computer' };
   const members = church.listMembers().filter((m) => m.isActive);
   const admins = members.filter((m) => m.role === 'admin' && m.hasPassword).length;
+  /** Members (e.g. imported from the old app) who can't sign in until someone sets their password. */
+  const noPassword = members.filter((m) => !m.hasPassword);
+  const adminsNoPassword = noPassword.filter((m) => m.role === 'admin');
 
   const act = async (fn: () => Promise<void>) => {
     setError(''); setBusy(true);
@@ -53,7 +56,14 @@ export function Members() {
       </div>
       {admins < 2 && (
         <div className="card p-4 bg-amber-50 border-amber-200 text-amber-900 text-sm">
-          Add a second admin. If the only admin forgets their password, the church needs the printed recovery key to get back in.
+          {adminsNoPassword.length > 0
+            ? <>Set a password for {adminsNoPassword.map((m) => m.displayName).join(', ')} so {adminsNoPassword.length > 1 ? 'they' : 'this admin'} can sign in (use the key button on their row). Until then you’re the only admin who can get in, and if you forget your password the church needs the printed recovery key.</>
+            : <>Add a second admin. If the only admin forgets their password, the church needs the printed recovery key to get back in.</>}
+        </div>
+      )}
+      {noPassword.length > 0 && admins >= 2 && (
+        <div className="card p-4 bg-gray-50 text-gray-700 text-sm">
+          {noPassword.map((m) => m.displayName).join(', ')} can’t sign in yet. Set a password with the key button on their row.
         </div>
       )}
       {error && <div className="card p-3 bg-red-50 text-red-700 text-sm">{error}</div>}
@@ -130,7 +140,8 @@ export function Members() {
             {members.map((m) => (
               <tr key={m.username} className="border-t border-gray-100">
                 <td className="p-3 font-medium">{m.displayName}</td>
-                <td className="p-3 text-gray-600">{m.username}</td>
+                <td className="p-3 text-gray-600">{m.username}
+                  {!m.hasPassword && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">No password yet</span>}</td>
                 <td className="p-3">
                   <select className="input py-1" value={m.role} disabled={busy || m.username === user?.username}
                     onChange={(e) => act(() => church.updateMemberRole(m.username, e.target.value as Role))}>
@@ -138,7 +149,7 @@ export function Members() {
                   </select>
                 </td>
                 <td className="p-3 text-right whitespace-nowrap">
-                  <button className="btn-ghost btn-sm" title="Reset password" onClick={() => setForm({ ...m, password: '', editing: true })}><KeyRound className="h-4 w-4" /></button>
+                  <button className="btn-ghost btn-sm" title={m.hasPassword ? 'Reset password' : 'Set password'} onClick={() => setForm({ ...m, password: '', editing: true })}><KeyRound className="h-4 w-4" /></button>
                   {m.username !== user?.username && (
                     <button className="btn-ghost btn-sm text-red-600" title="Remove" disabled={busy}
                       onClick={() => window.confirm(`Remove ${m.displayName}? They will no longer be able to open the church file.`) && act(() => church.removeMember(m.username))}>

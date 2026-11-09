@@ -48,6 +48,8 @@ async function openPlainImport(bytes?: Uint8Array): Promise<OpenedDb> {
 
 export type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
 
+const LOCK_OWNER = 'lock-owner';
+
 export class Church {
   private dirty = false;
   private saving: Promise<void> | null = null;
@@ -76,6 +78,11 @@ export class Church {
 
   private taking: Promise<boolean> | null = null;
 
+  /** A lock record with the owner's name decrypted for display. */
+  private async readable(l: LockInfo | null): Promise<LockInfo | null> {
+    return l && { ...l, owner: await E.openString(this.unlocked, l.owner, LOCK_OWNER) };
+  }
+
   /**
    * Tries to become the editor. Safe to call again (e.g. "Try again" button). Overlapping calls
    * (button + the 30 s auto-retry) share one attempt; otherwise the second would see the
@@ -89,9 +96,11 @@ export class Church {
   private async tryTakeLock(): Promise<boolean> {
     if (!hasLockStore(this.adapter) || this.opened.readOnly || this.user?.role === 'viewer') return true;
     const store = this.adapter;
-    const r = await acquireLock(store, this.user?.displayName ?? 'Someone', { settleMs: Church.lockSettleMs, token: this.lock?.token });
+    // The editor's name is stored encrypted, so only members can read who is editing.
+    const owner = await E.sealString(this.unlocked, this.user?.displayName ?? 'Someone', LOCK_OWNER);
+    const r = await acquireLock(store, owner, { settleMs: Church.lockSettleMs, token: this.lock?.token });
     if (!r.ok) {
-      this.lockedBy = r.holder;
+      this.lockedBy = await this.readable(r.holder);
       this.setState(this.state);
       return false;
     }
@@ -113,7 +122,7 @@ export class Church {
       renewLock(store, this.lock).then((next) => {
         if (next) { this.lock = next; return; }
         this.lock = null;
-        void store.readLock().then((h) => { this.lockedBy = h; this.setState(this.state); });
+        void store.readLock().then((h) => this.readable(h)).then((h) => { this.lockedBy = h; this.setState(this.state); });
       }).catch(() => { /* offline: keep trying; the lock may expire */ });
     }, HEARTBEAT_MS);
     this.setState(this.state);
