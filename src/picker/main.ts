@@ -3,6 +3,7 @@ import { getGoogleToken, startGoogleSignIn } from '../client/storage/googleAuth'
 import { finishPick, pickerAppId, type PickMode } from '../client/storage/drivePicker';
 import { FILE_MIME } from '../client/storage/googleDrive';
 
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
 declare const gapi: any;
 declare const google: any;
 
@@ -40,19 +41,22 @@ async function main() {
     .setCallback((data: any) => {
       if (data.action === P.Action.PICKED) {
         const d = data.docs?.[0];
-        finishPick({ mode, id: d?.id, name: d?.name });
+        finishPick({ mode, id: d?.id, name: d?.name, isFolder: d?.mimeType === FOLDER_MIME });
       } else if (data.action === P.Action.CANCEL) {
         finishPick({ mode, cancelled: true });
       }
     });
 
   if (mode === 'folder') {
+    // Church files are shown too, so a folder that already holds one doesn't look empty.
+    // Picking one of them opens that church instead (see Login).
+    const types = `${FOLDER_MIME},${FILE_MIME}`;
     builder.setTitle('Choose a folder for your church’s data')
-      .addView(new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes('application/vnd.google-apps.folder').setParent('root'))
-      .addView(new P.DocsView(P.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes('application/vnd.google-apps.folder').setEnableDrives(true));
+      .addView(new P.DocsView(P.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(types).setParent('root'))
+      .addView(new P.DocsView(P.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(types).setEnableDrives(true));
   } else {
     builder.setTitle('Choose your church file (.fidelia)')
-      .addView(new P.DocsView().setMimeTypes(FILE_MIME).setQuery('.fidelia').setIncludeFolders(true))
+      .addView(new P.DocsView(P.ViewId.DOCS).setMimeTypes(FILE_MIME).setIncludeFolders(true).setParent('root'))
       .addView(new P.DocsView().setMimeTypes(FILE_MIME).setOwnedByMe(false))
       .addView(new P.DocsView().setMimeTypes(FILE_MIME).setEnableDrives(true).setIncludeFolders(true));
   }

@@ -225,6 +225,9 @@ export function Login() {
       getAdapter: async () => {
         const parent = typeof folder !== 'string' ? folder.id
           : folderName ? await GoogleDriveAdapter.ensureFolder(getGoogleToken, folderName) : undefined;
+        if (await GoogleDriveAdapter.findByName(getGoogleToken, name, parent)) {
+          throw new Error(`There is already a file named ${name} in ${folderName || 'My Drive'}. To use that church, go back to the first page and sign in. To start a new church, go back and choose another file name.`);
+        }
         return GoogleDriveAdapter.create(getGoogleToken, name, parent);
       },
     };
@@ -251,6 +254,13 @@ export function Login() {
     // Back from the Google Picker page.
     const picked = takePickResult();
     if (picked) {
+      if (picked.mode === 'folder' && picked.id && picked.isFolder === false) {
+        // Picked an existing church file while looking for a folder: open that church instead.
+        resumeCreate();
+        void openDriveFile({ id: picked.id, name: picked.name ?? 'Church file' }).then(() =>
+          a.setError(`${picked.name ?? 'That file'} is an existing church, so it’s opened here. Sign in below, or go back to create a different church.`));
+        return;
+      }
       if (picked.mode === 'folder') {
         const p = resumeCreate();
         if (picked.id) setPickedFolder({ id: picked.id, name: picked.name ?? 'Chosen folder' });

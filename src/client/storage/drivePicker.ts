@@ -6,7 +6,7 @@
 import { getGoogleToken, googleClientId, startGoogleSignIn } from './googleAuth';
 
 export type PickMode = 'folder' | 'file';
-export interface PickResult { mode: PickMode; id?: string; name?: string; cancelled?: boolean; error?: string }
+export interface PickResult { mode: PickMode; id?: string; name?: string; isFolder?: boolean; cancelled?: boolean; error?: string }
 
 const RESULT = 'fidelia.picked';
 

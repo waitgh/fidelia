@@ -65,6 +65,14 @@ export class GoogleDriveAdapter implements StorageAdapter, LockStore {
     return (await res.json()).id;
   }
 
+  /** A file with this exact name in the folder (default: top of My Drive), if the app can see one. */
+  static async findByName(getToken: GetToken, name: string, parentId = 'root'): Promise<string | null> {
+    const esc = (v: string) => v.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const q = encodeURIComponent(`name='${esc(name)}' and '${esc(parentId)}' in parents and trashed=false`);
+    const res = await call(getToken, `${API}/files?q=${q}&fields=files(id)&pageSize=1&supportsAllDrives=true&includeItemsFromAllDrives=true`);
+    return (await res.json()).files?.[0]?.id ?? null;
+  }
+
   /** Church files this app can see (created by it, or opened through the picker). */
   static async list(getToken: GetToken): Promise<{ id: string; name: string; modifiedTime: string }[]> {
     const q = encodeURIComponent("appProperties has { key='fidelia' and value='1' } and trashed=false");
