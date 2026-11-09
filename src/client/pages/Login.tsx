@@ -1,7 +1,7 @@
-// Welcome / unlock screen: open a church file, create a new church, or try the demo.
+// Welcome screen: sign in, or create a church account (and choose where its data lives).
 // Everything happens in this browser; nothing is sent to a server.
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Loader2, AlertCircle, FolderOpen, PlusCircle, PlayCircle, KeyRound, Printer, Cloud, FileLock2 } from 'lucide-react';
+import { Loader2, AlertCircle, KeyRound, Printer, Cloud, FileLock2, LogIn, UserPlus, HardDrive } from 'lucide-react';
 import { useAuth } from '../lib/auth.js';
 import { LogoMark } from '../components/Logo.js';
 import { Church } from '../church/church';
@@ -33,16 +33,28 @@ function driveOpenRequest(): DriveFile | null {
   try { return JSON.parse(sessionStorage.getItem('fidelia.driveOpen') ?? 'null'); } catch { return null; }
 }
 
+type Where = 'drive' | 'dropbox' | 'local';
+
 type Step =
   | { s: 'start' }
+  /** Sign in: where is the church's data? */
+  | { s: 'signinWhere' }
   | { s: 'drive'; files: DriveFile[] }
   | { s: 'dropbox'; files: { path: string; name: string; modified: string }[] }
   | { s: 'unlock'; adapter: StorageAdapter }
   | { s: 'recover'; adapter: StorageAdapter }
   | { s: 'claim'; church: Church }
-  /** `getAdapter` runs only when the form is submitted, so backing out leaves nothing behind. */
-  | { s: 'create'; label: string; getAdapter: () => Promise<StorageAdapter>; drive?: boolean }
+  /** Create account, step 1: church and person. */
+  | { s: 'create' }
+  /** Create account, step 2: where to keep the data. */
+  | { s: 'createWhere' }
+  /** Create account, step 3: password. `getAdapter` runs only on submit, so backing out leaves nothing behind. */
+  | { s: 'createPassword'; label: string; getAdapter: () => Promise<StorageAdapter> }
   | { s: 'recoveryKey'; church: Church; key: string };
+
+/** Non-secret create-account answers kept across the Google/Dropbox sign-in redirect. Never holds the password. */
+const PENDING_CREATE = 'fidelia.pendingCreate';
+type PendingCreate = { churchName: string; displayName: string; username: string; where: Where; driveFolder: string; driveFileName: string; dropboxPath: string };
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -105,6 +117,21 @@ const Back = ({ onClick }: { onClick: () => void }) => (
   <button type="button" onClick={onClick} className="text-sm text-gray-500 hover:text-gray-700 w-full text-center">Back</button>
 );
 
+const StepLabel = ({ n }: { n: number }) => <p className="text-xs text-gray-400 text-center -mt-3">Step {n} of 3</p>;
+
+function Option(p: { icon: ReactNode; title: string; text: string; onClick: () => void; disabled?: boolean; selected?: boolean; children?: ReactNode }) {
+  return (
+    <div className={`rounded-xl border ${p.selected ? 'border-primary-500 bg-primary-50' : 'border-gray-200'}`}>
+      <button type="button" disabled={p.disabled} onClick={p.onClick}
+        className="w-full flex items-start gap-3 text-left p-4 rounded-xl hover:bg-primary-50 disabled:opacity-50">
+        <span className="text-primary-600 mt-0.5">{p.icon}</span>
+        <span><span className="block font-medium text-gray-900">{p.title}</span><span className="block text-sm text-gray-500">{p.text}</span></span>
+      </button>
+      {p.selected && p.children && <div className="px-4 pb-4 space-y-2 text-sm">{p.children}</div>}
+    </div>
+  );
+}
+
 export function Login() {
   const { enter } = useAuth();
   const [step, setStep] = useState<Step>({ s: 'start' });
@@ -118,11 +145,24 @@ export function Login() {
   const [saved, setSaved] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const fileSupported = LocalFileAdapter.supported();
+  const driveConfigured = !!googleClientId();
+  const dropboxConfigured = !!dropboxAppKey();
   const [recent, setRecentState] = useState<RecentChurch | null>(null);
   useEffect(() => { void getRecent().then(setRecentState); }, []);
-  const driveConfigured = !!googleClientId();
+  /** The remembered church, if this browser can still open it. */
+  const usableRecent = recent && (
+    (recent.kind === 'google-drive' && driveConfigured) || (recent.kind === 'dropbox' && dropboxConfigured) || (recent.kind === 'local-file' && fileSupported)
+  ) ? recent : null;
+
+  // Create-account choices.
+  const [where, setWhere] = useState<Where | null>(null);
+  /** Drive folder for a new church; '' = top level of My Drive. */
+  const [driveFolder, setDriveFolder] = useState('Fidelia');
+  const [driveFileName, setDriveFileName] = useState('Church.fidelia');
+  const [dropboxPath, setDropboxPath] = useState('/Fidelia/Church.fidelia');
 
   const forgetRecent = () => { void setRecent(null); setRecentState(null); };
+  const go = (s: Step) => { a.setError(''); setPassword(''); setPassword2(''); setStep(s); };
 
   /** Opens a Drive church file after checking it still exists (it may have been deleted in Drive). */
   const openDriveFile = (f: DriveFile) => a.run(async () => {
@@ -135,38 +175,83 @@ export function Login() {
     go({ s: 'unlock', adapter });
   });
 
-  /** Shows the Drive file list, signing in with Google first if needed (full-page redirect). */
+  /** Sign in via Google Drive: finds the church file, signing in with Google first if needed (full-page redirect). */
   const openDrive = () => a.run(async () => {
     if (!getGoogleToken()) { startGoogleSignIn('/'); return; }
     const req = driveOpenRequest();
     if (req) { sessionStorage.removeItem('fidelia.driveOpen'); await openDriveFile(req); return; }
-    go({ s: 'drive', files: await GoogleDriveAdapter.list(getGoogleToken) });
+    const files = await GoogleDriveAdapter.list(getGoogleToken);
+    if (files.length === 1) { await openDriveFile(files[0]!); return; }
+    go({ s: 'drive', files });
   });
 
-  const dropboxConfigured = !!dropboxAppKey();
-  const [newPath, setNewPath] = useState('/Fidelia/Church.fidelia');
-  /** Drive folder for a new church; '' = top level of My Drive. */
-  const [driveFolder, setDriveFolder] = useState('Fidelia');
-  const [driveFileName, setDriveFileName] = useState('Church.fidelia');
   const openDropbox = () => a.run(async () => {
     if (!hasDropboxSession()) { sessionStorage.setItem('fidelia.resume', 'dropbox'); await startDropboxSignIn(); return; }
     const want = sessionStorage.getItem('fidelia.dropboxOpen');
     if (want) { sessionStorage.removeItem('fidelia.dropboxOpen'); go({ s: 'unlock', adapter: new DropboxAdapter(want) }); return; }
-    go({ s: 'dropbox', files: await DropboxAdapter.list() });
+    const files = await DropboxAdapter.list();
+    if (files.length === 1) { go({ s: 'unlock', adapter: new DropboxAdapter(files[0]!.path) }); return; }
+    go({ s: 'dropbox', files });
   });
 
-  // Resume after the Google redirect, or after Drive "Open with".
-  useEffect(() => {
-    if (sessionStorage.getItem('fidelia.resume') === 'dropbox') {
-      sessionStorage.removeItem('fidelia.resume');
-      void a.run(async () => { if (await completeDropboxSignIn()) await openDropbox(); });
-      return;
+  /** Sign in to the church this browser used last time. */
+  const openRecent = (r: RecentChurch) => {
+    if (r.kind === 'google-drive') {
+      const f = { id: String(r.ref), name: r.label.replace(/^Google Drive: /, '') };
+      if (getGoogleToken()) void openDriveFile(f);
+      else { sessionStorage.setItem('fidelia.driveOpen', JSON.stringify(f)); startGoogleSignIn('/'); }
+    } else if (r.kind === 'dropbox') {
+      sessionStorage.setItem('fidelia.dropboxOpen', String(r.ref)); void openDropbox();
+    } else {
+      void a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.fromHandle(r.ref) }));
     }
+  };
+
+  const driveCreateStep = (folder: string, fileName: string): Step => ({
+    s: 'createPassword',
+    label: `Google Drive: ${folder.trim() ? `${folder.trim()}/` : ''}${fileName.trim().replace(/\.fidelia$/i, '')}.fidelia`,
+    getAdapter: async () => {
+      const name = fileName.trim().replace(/\.fidelia$/i, '') + '.fidelia';
+      const parent = folder.trim() ? await GoogleDriveAdapter.ensureFolder(getGoogleToken, folder.trim()) : undefined;
+      return GoogleDriveAdapter.create(getGoogleToken, name, parent);
+    },
+  });
+  const dropboxCreateStep = (path: string): Step => {
+    const ad = new DropboxAdapter(path.endsWith('.fidelia') ? path : `${path}.fidelia`);
+    return { s: 'createPassword', label: ad.describe(), getAdapter: async () => ad };
+  };
+
+  /** Restores create-account answers after a Google/Dropbox sign-in redirect. */
+  const resumeCreate = (): PendingCreate | null => {
+    let p: PendingCreate | null = null;
+    try { p = JSON.parse(sessionStorage.getItem(PENDING_CREATE) ?? 'null'); } catch { /* ignore */ }
+    sessionStorage.removeItem(PENDING_CREATE);
+    if (!p) return null;
+    setChurchName(p.churchName); setDisplayName(p.displayName); setUsername(p.username);
+    setWhere(p.where); setDriveFolder(p.driveFolder); setDriveFileName(p.driveFileName); setDropboxPath(p.dropboxPath);
+    return p;
+  };
+
+  // Resume after a Google/Dropbox redirect, or after Drive "Open with".
+  useEffect(() => {
+    const resume = sessionStorage.getItem('fidelia.resume');
+    sessionStorage.removeItem('fidelia.resume');
     const startupError = (window as any).__fideliaStartupError as string;
     if (startupError) { a.setError(startupError); return; }
-    const resumed = sessionStorage.getItem('fidelia.resume') === 'google-drive';
-    sessionStorage.removeItem('fidelia.resume');
-    if (resumed || driveOpenRequest()) void openDrive();
+    if (resume === 'dropbox') {
+      void a.run(async () => {
+        if (!(await completeDropboxSignIn())) return;
+        const p = resumeCreate();
+        if (p?.where === 'dropbox') go(dropboxCreateStep(p.dropboxPath));
+        else await openDropbox();
+      });
+      return;
+    }
+    if (resume === 'google-drive') {
+      const p = resumeCreate();
+      if (p?.where === 'drive' && getGoogleToken()) { go(driveCreateStep(p.driveFolder, p.driveFileName)); return; }
+    }
+    if (resume === 'google-drive' || driveOpenRequest()) void openDrive();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -182,70 +267,57 @@ export function Login() {
     enter(church);
   };
 
-  const go = (s: Step) => { a.setError(''); setPassword(''); setPassword2(''); setStep(s); };
-
   const checkNewPassword = () => {
     if (password.length < 8) throw new Error('Password must be at least 8 characters');
     if (password !== password2) throw new Error('Passwords do not match');
   };
 
+  const startDemo = () => a.run(async () => {
+    const { church } = await Church.create(new MemoryAdapter(), { churchName: '', username: 'demo', displayName: 'Demo Admin', password: 'demo-password' });
+    seedDemo(church.opened.db);
+    await church.saveNow();
+    enter(church);
+  });
+
   if (step.s === 'start') {
-    const Choice = (p: { icon: ReactNode; title: string; text: string; onClick: () => void; disabled?: boolean; onForget?: () => void }) => (
-      <div className="relative">
-        <button type="button" disabled={p.disabled || a.busy} onClick={p.onClick}
-          className="w-full flex items-start gap-3 text-left rounded-xl border border-gray-200 p-4 hover:border-primary-400 hover:bg-primary-50 disabled:opacity-50">
-          <span className="text-primary-600 mt-0.5">{p.icon}</span>
-          <span className={p.onForget ? 'pr-14' : ''}><span className="block font-medium text-gray-900">{p.title}</span><span className="block text-sm text-gray-500">{p.text}</span></span>
-        </button>
-        {p.onForget && (
-          <button type="button" onClick={p.onForget} title="Remove this shortcut from this browser"
-            className="absolute top-3 right-3 text-xs text-gray-400 hover:text-gray-700 underline">Forget</button>
-        )}
-      </div>
-    );
     return (
       <Shell>
         <Title>Welcome</Title>
         <ErrorBox error={a.error} />
-        {recent?.kind === 'google-drive' && driveConfigured && (
-          <Choice icon={<Cloud className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
-            onForget={forgetRecent}
-            onClick={() => {
-              const id = String(recent.ref);
-              if (getGoogleToken()) openDriveFile({ id, name: recent.label.replace(/^Google Drive: /, '') });
-              else { sessionStorage.setItem('fidelia.driveOpen', JSON.stringify({ id, name: recent.label.replace(/^Google Drive: /, '') })); startGoogleSignIn('/'); }
-            }} />
+        <button type="button" className="btn-primary w-full py-2.5" disabled={a.busy}
+          onClick={() => (usableRecent ? openRecent(usableRecent) : go({ s: 'signinWhere' }))}>
+          {a.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogIn className="h-4 w-4" /> Sign in</>}
+        </button>
+        {usableRecent && (
+          <p className="text-xs text-gray-500 text-center -mt-2">
+            {usableRecent.label} ·{' '}
+            <button type="button" className="underline hover:text-gray-700" onClick={() => go({ s: 'signinWhere' })}>Different church</button> ·{' '}
+            <button type="button" className="underline hover:text-gray-700" onClick={forgetRecent} title="Stop remembering this church in this browser">Forget</button>
+          </p>
         )}
-        {recent?.kind === 'local-file' && fileSupported && (
-          <Choice icon={<FolderOpen className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
-            onForget={forgetRecent}
-            onClick={() => a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.fromHandle(recent.ref) }))} />
-        )}
-        {driveConfigured && (
-          <Choice icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Open or set up a church file in your Google Drive. Works on iPhone." onClick={openDrive} />
-        )}
-        {recent?.kind === 'dropbox' && dropboxConfigured && (
-          <Choice icon={<Cloud className="h-5 w-5" />} title={`Continue: ${recent.label}`} text="Open the church you used last time."
-            onForget={forgetRecent}
-            onClick={() => { sessionStorage.setItem('fidelia.dropboxOpen', String(recent.ref)); void openDropbox(); }} />
-        )}
-        {dropboxConfigured && (
-          <Choice icon={<Cloud className="h-5 w-5" />} title="Dropbox" text="Open or set up a church file in your Dropbox." onClick={openDropbox} />
-        )}
-        <Choice icon={<FolderOpen className="h-5 w-5" />} title="Open church file" disabled={!fileSupported}
-          text={fileSupported ? 'Open your church’s .fidelia file on this computer.' : 'Opening local files needs Chrome or Edge on a computer.'}
-          onClick={() => a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.open() }))} />
-        <Choice icon={<PlusCircle className="h-5 w-5" />} title="Set up a new church" disabled={!fileSupported}
-          text="Create a new encrypted church file."
-          onClick={() => a.run(async () => { const ad = await LocalFileAdapter.create(); go({ s: 'create', label: ad.describe(), getAdapter: async () => ad }); })} />
-        <Choice icon={<PlayCircle className="h-5 w-5" />} title="Try the demo" text="Explore with sample data. Nothing is saved."
-          onClick={() => a.run(async () => {
-            const { church } = await Church.create(new MemoryAdapter(), { churchName: '', username: 'demo', displayName: 'Demo Admin', password: 'demo-password' });
-            seedDemo(church.opened.db);
-            await church.saveNow();
-            enter(church);
-          })} />
+        <button type="button" className="btn-secondary w-full py-2.5" disabled={a.busy} onClick={() => go({ s: 'create' })}>
+          <UserPlus className="h-4 w-4" /> Create a church account
+        </button>
+        <button type="button" className="text-sm text-primary-600 hover:underline w-full text-center" disabled={a.busy} onClick={startDemo}>
+          Just looking? Try the demo
+        </button>
         <p className="text-xs text-gray-400 text-center">Your church data is encrypted in this browser. The people who run this website cannot read it.</p>
+      </Shell>
+    );
+  }
+
+  if (step.s === 'signinWhere') {
+    return (
+      <Shell>
+        <Title>Where is your church’s data?</Title>
+        <p className="text-sm text-gray-500 text-center">Choose where your church account was set up. We’ll find it, then ask for your password.</p>
+        <ErrorBox error={a.error} />
+        {driveConfigured && <Option icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Sign in with Google to find it." disabled={a.busy} onClick={openDrive} />}
+        {dropboxConfigured && <Option icon={<Cloud className="h-5 w-5" />} title="Dropbox" text="Sign in with Dropbox to find it." disabled={a.busy} onClick={openDropbox} />}
+        <Option icon={<HardDrive className="h-5 w-5" />} title="A file on this computer" disabled={a.busy || !fileSupported}
+          text={fileSupported ? 'Open your church’s .fidelia file.' : 'Needs Chrome or Edge on a computer.'}
+          onClick={() => a.run(async () => go({ s: 'unlock', adapter: await LocalFileAdapter.open() }))} />
+        <Back onClick={() => go({ s: 'start' })} />
       </Shell>
     );
   }
@@ -253,7 +325,7 @@ export function Login() {
   if (step.s === 'drive') {
     return (
       <Shell>
-        <Title>Google Drive</Title>
+        <Title>Choose your church</Title>
         <ErrorBox error={a.error} />
         {step.files.length > 0 ? (
           <ul className="space-y-2">
@@ -268,18 +340,8 @@ export function Login() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-gray-600">No church files yet. If someone shared the church file with you, open it in Google Drive and choose <b>Open with → Fidelia Ledger</b>.</p>
+          <p className="text-sm text-gray-600">No church account found in this Google Drive. If someone shared the church file with you, open it in Google Drive and choose <b>Open with → Fidelia Ledger</b>. Otherwise, go back and create a church account.</p>
         )}
-        <button type="button" className="btn-secondary w-full" disabled={a.busy}
-          onClick={() => go({
-            s: 'create', drive: true, label: 'Google Drive',
-            getAdapter: async () => {
-              const name = driveFileName.trim().replace(/\.fidelia$/i, '') + '.fidelia';
-              const parent = driveFolder.trim() ? await GoogleDriveAdapter.ensureFolder(getGoogleToken, driveFolder.trim()) : undefined;
-              return GoogleDriveAdapter.create(getGoogleToken, name, parent);
-            },
-          })}>
-          <PlusCircle className="h-4 w-4" /> Set up a new church in Drive</button>
         <Back onClick={() => go({ s: 'start' })} />
       </Shell>
     );
@@ -288,7 +350,7 @@ export function Login() {
   if (step.s === 'dropbox') {
     return (
       <Shell>
-        <Title>Dropbox</Title>
+        <Title>Choose your church</Title>
         <ErrorBox error={a.error} />
         {step.files.length ? (
           <ul className="space-y-2">
@@ -302,12 +364,7 @@ export function Login() {
               </li>
             ))}
           </ul>
-        ) : <p className="text-sm text-gray-600">No church files found in your Dropbox.</p>}
-        <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); const ad = new DropboxAdapter(newPath.endsWith('.fidelia') ? newPath : `${newPath}.fidelia`); go({ s: 'create', label: ad.describe(), getAdapter: async () => ad }); }}>
-          <Field label="New church file location" value={newPath} onChange={setNewPath} />
-          <button className="btn-secondary w-full"><PlusCircle className="h-4 w-4" /> Set up a new church in Dropbox</button>
-        </form>
-        <p className="text-xs text-gray-500">To let others in, share the folder with them in Dropbox, then add them under Members.</p>
+        ) : <p className="text-sm text-gray-600">No church account found in this Dropbox. Ask whoever set it up to share the folder with you, or go back and create a church account.</p>}
         <Back onClick={() => go({ s: 'start' })} />
       </Shell>
     );
@@ -358,7 +415,7 @@ export function Login() {
       <Shell>
         <form onSubmit={submit} className="space-y-5">
           <Title>Set a new password</Title>
-          <p className="text-sm text-gray-600">Unlocked. Choose your username and a new password. You will be an admin.</p>
+          <p className="text-sm text-gray-600">Unlocked. Choose your sign-in name and a new password. You will be an admin.</p>
           <ErrorBox error={a.error} />
           <Field label="Your full name" value={displayName} onChange={setDisplayName} hint="How others see you, e.g. in the Audit Log. Example: Grace Chen" autoFocus />
           <p className="pt-2 text-sm font-medium text-gray-700 border-t border-gray-100">Your sign-in</p>
@@ -372,6 +429,88 @@ export function Login() {
   }
 
   if (step.s === 'create') {
+    const submit = (e: FormEvent) => {
+      e.preventDefault();
+      if (/\s/.test(username.trim())) { a.setError('Sign-in name can’t contain spaces'); return; }
+      setUsername(username.trim());
+      go({ s: 'createWhere' });
+    };
+    return (
+      <Shell>
+        <form onSubmit={submit} className="space-y-5">
+          <Title>Create a church account</Title>
+          <StepLabel n={1} />
+          <ErrorBox error={a.error} />
+          <Field label="Church name" value={churchName} onChange={setChurchName} autoFocus />
+          <Field label="Your full name" value={displayName} onChange={setDisplayName} hint="How others see you, e.g. in the Audit Log. Example: Grace Chen" />
+          <Field label="Sign-in name" value={username} onChange={setUsername} autoComplete="username" hint="What you type to sign in. Short, no spaces. Example: grace" />
+          <Submit busy={a.busy}>Next</Submit>
+          <Back onClick={() => go({ s: 'start' })} />
+        </form>
+      </Shell>
+    );
+  }
+
+  if (step.s === 'createWhere') {
+    const next = () => a.run(async () => {
+      if (!where) throw new Error('Choose where to keep your church’s data');
+      const pending: PendingCreate = { churchName, displayName, username, where, driveFolder, driveFileName, dropboxPath };
+      if (where === 'drive') {
+        if (!driveFileName.trim()) throw new Error('Enter a file name');
+        if (!getGoogleToken()) { sessionStorage.setItem(PENDING_CREATE, JSON.stringify(pending)); startGoogleSignIn('/'); return; }
+        go(driveCreateStep(driveFolder, driveFileName));
+      } else if (where === 'dropbox') {
+        if (!hasDropboxSession()) {
+          sessionStorage.setItem(PENDING_CREATE, JSON.stringify(pending));
+          sessionStorage.setItem('fidelia.resume', 'dropbox');
+          await startDropboxSignIn(); return;
+        }
+        go(dropboxCreateStep(dropboxPath));
+      } else {
+        const ad = await LocalFileAdapter.create();
+        go({ s: 'createPassword', label: ad.describe(), getAdapter: async () => ad });
+      }
+    });
+    return (
+      <Shell>
+        <Title>Where to keep your church’s data</Title>
+        <StepLabel n={2} />
+        <p className="text-sm text-gray-500 text-center">Your data is stored, encrypted, in your own account. Other treasurers will sign in to the same place.</p>
+        <ErrorBox error={a.error} />
+        {driveConfigured && (
+          <Option icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Recommended. Works on any computer and iPhone." selected={where === 'drive'} onClick={() => setWhere('drive')}>
+            <label className="flex items-center gap-2">
+              <input type="radio" checked={driveFolder !== ''} onChange={() => setDriveFolder('Fidelia')} /> In a folder named
+              <input className="input py-1 flex-1 min-w-0" value={driveFolder} disabled={driveFolder === ''} onChange={(e) => setDriveFolder(e.target.value)} />
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" checked={driveFolder === ''} onChange={() => setDriveFolder('')} /> At the top of My Drive
+            </label>
+            <label className="flex items-center gap-2">File name
+              <input className="input py-1 flex-1 min-w-0" value={driveFileName} onChange={(e) => setDriveFileName(e.target.value)} />
+            </label>
+            <p className="text-xs text-gray-500">You can move or rename it in Drive later. Don’t copy or re-upload it.</p>
+          </Option>
+        )}
+        {dropboxConfigured && (
+          <Option icon={<Cloud className="h-5 w-5" />} title="Dropbox" text="Works on any computer and iPhone." selected={where === 'dropbox'} onClick={() => setWhere('dropbox')}>
+            <label className="block"><span className="text-gray-600">File location</span>
+              <input className="input py-1" value={dropboxPath} onChange={(e) => setDropboxPath(e.target.value)} />
+            </label>
+          </Option>
+        )}
+        <Option icon={<HardDrive className="h-5 w-5" />} title="A file on this computer" disabled={!fileSupported} selected={where === 'local'}
+          text={fileSupported ? 'Only this computer can open it. You’ll choose where to save it.' : 'Needs Chrome or Edge on a computer.'}
+          onClick={() => setWhere('local')} />
+        <button type="button" className="btn-primary w-full py-2.5" disabled={a.busy || !where} onClick={next}>
+          {a.busy ? <Loader2 className="h-4 w-4 animate-spin" /> : where === 'drive' && !getGoogleToken() ? 'Next: sign in with Google' : where === 'dropbox' && !hasDropboxSession() ? 'Next: sign in with Dropbox' : 'Next'}
+        </button>
+        <Back onClick={() => go({ s: 'create' })} />
+      </Shell>
+    );
+  }
+
+  if (step.s === 'createPassword') {
     const submit = (e: FormEvent) => {
       e.preventDefault();
       a.run(async () => {
@@ -392,30 +531,12 @@ export function Login() {
     return (
       <Shell>
         <form onSubmit={submit} className="space-y-5">
-          <Title>Set up your church</Title>
-          <p className="text-sm text-gray-500 text-center">Saving to {step.label}</p>
+          <Title>Choose your password</Title>
+          <StepLabel n={3} />
+          <p className="text-sm text-gray-500 text-center">{churchName} · signing in as <b>{username}</b><br />Saving to {step.label}</p>
           <ErrorBox error={a.error} />
-          <Field label="Church name" value={churchName} onChange={setChurchName} autoFocus />
-          {step.drive && (
-            <fieldset className="rounded-lg border border-gray-200 p-3 space-y-2 text-sm">
-              <legend className="px-1 text-gray-600">Where in your Google Drive</legend>
-              <label className="flex items-center gap-2">
-                <input type="radio" checked={driveFolder !== ''} onChange={() => setDriveFolder('Fidelia')} /> In a folder named
-                <input className="input py-1 flex-1" value={driveFolder} disabled={driveFolder === ''} onChange={(e) => setDriveFolder(e.target.value)} />
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="radio" checked={driveFolder === ''} onChange={() => setDriveFolder('')} /> At the top of My Drive
-              </label>
-              <label className="flex items-center gap-2">File name
-                <input className="input py-1 flex-1" value={driveFileName} onChange={(e) => setDriveFileName(e.target.value)} />
-              </label>
-              <p className="text-xs text-gray-500">You can move or rename the file in Drive later; the app will still find it. Don't copy or re-upload it.</p>
-            </fieldset>
-          )}
-          <Field label="Your full name" value={displayName} onChange={setDisplayName} hint="How others see you, e.g. in the Audit Log. Example: Grace Chen" />
-          <p className="pt-2 text-sm font-medium text-gray-700 border-t border-gray-100">Your sign-in</p>
-          <Field label="Sign-in name" value={username} onChange={setUsername} autoComplete="username" hint="What you type to sign in. Short, no spaces. Example: grace" />
-          <Field label="Password (8+ characters)" value={password} onChange={setPassword} type="password" autoComplete="new-password" />
+          <input type="text" autoComplete="username" value={username} readOnly hidden />
+          <Field label="Password (8+ characters)" value={password} onChange={setPassword} type="password" autoComplete="new-password" autoFocus />
           <Field label="Repeat password" value={password2} onChange={setPassword2} type="password" autoComplete="new-password" />
           <details className="text-sm">
             <summary className="cursor-pointer text-gray-600">Moving from the old Fidelia Ledger app?</summary>
@@ -429,9 +550,9 @@ export function Login() {
               {importFile && <p className="text-xs text-green-700 mt-1">Will import {importFile.name}</p>}
             </div>
           </details>
-          <p className="text-xs text-gray-500">There is no “forgot password” email. Keep your recovery key safe, and add a second admin soon.</p>
-          <Submit busy={a.busy}>Create church</Submit>
-          <Back onClick={() => go({ s: 'start' })} />
+          <p className="text-xs text-gray-500">There is no “forgot password” email. Next you’ll get a recovery key to print, and you should add a second admin soon.</p>
+          <Submit busy={a.busy}>Create church account</Submit>
+          <Back onClick={() => go({ s: 'createWhere' })} />
         </form>
       </Shell>
     );

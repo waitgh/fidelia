@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-09: Welcome page redone as **Sign in** / **Create a church account** (demo is a small link). Sign in goes straight to the church this browser used last time ("Different church" and "Forget" links), otherwise asks where the data lives (Drive/Dropbox/this computer) and opens the file directly if only one is found. Create account is 3 steps: church and person, then where to keep the data (Drive folder choice, Dropbox path, or local file), then the password. Answers that aren't secret survive the Google/Dropbox sign-in redirect via sessionStorage; the password is never stored.
+
 - 2026-11-06: Drive setup now asks where to save: a folder (default “Fidelia”, reused if the app made it before, otherwise created) or the top of My Drive, plus the file name.
 
 - 2026-11-06: Fixed: “Continue: Google Drive” stayed after the file was deleted in Drive. Continue now checks the file exists (not trashed/404) and forgets it if not, with a message. Every Continue shortcut has a “Forget” link.
