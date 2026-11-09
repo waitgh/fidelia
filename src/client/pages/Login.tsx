@@ -175,7 +175,7 @@ export function Login() {
     if (!(await adapter.exists())) {
       if (recent?.kind === 'google-drive' && String(recent.ref) === f.id) forgetRecent();
       go({ s: 'start' });
-      throw new Error('That church file is no longer in Google Drive (it was deleted or you lost access).');
+      throw new Error('That church file is no longer in Google Drive (it was deleted or moved to the trash).');
     }
     go({ s: 'unlock', adapter });
   });

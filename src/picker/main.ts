@@ -1,6 +1,6 @@
 // Google Picker page. See src/client/storage/drivePicker.ts for why this is a separate page.
 import { getGoogleToken, startGoogleSignIn } from '../client/storage/googleAuth';
-import { finishPick, type PickMode } from '../client/storage/drivePicker';
+import { finishPick, pickerAppId, type PickMode } from '../client/storage/drivePicker';
 import { FILE_MIME } from '../client/storage/googleDrive';
 
 declare const gapi: any;
@@ -34,7 +34,7 @@ async function main() {
   const builder = new P.PickerBuilder()
     .setOAuthToken(token)
     .setDeveloperKey(import.meta.env.VITE_GOOGLE_API_KEY)
-    .setAppId(import.meta.env.VITE_GOOGLE_APP_ID)
+    .setAppId(pickerAppId())
     .setOrigin(location.origin)
     .enableFeature(P.Feature.SUPPORT_DRIVES)
     .setCallback((data: any) => {

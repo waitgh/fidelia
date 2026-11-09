@@ -74,14 +74,17 @@ export class GoogleDriveAdapter implements StorageAdapter, LockStore {
     return files.filter((f) => Number(f.size ?? 0) > 0).map(({ size: _s, ...f }) => f);
   }
 
-  /** False if the file was deleted, trashed, or is no longer accessible. */
+  /** False if the file was deleted or trashed. Throws if Google refuses access (403). */
   async exists(): Promise<boolean> {
     try {
       const res = await call(this.getToken, `${API}/files/${this.fileId}?fields=trashed`);
       return !(await res.json()).trashed;
     } catch (e) {
       if (e instanceof AuthExpiredError) throw e;
-      if (/error 40[34]/.test((e as Error).message)) return false;
+      if (/error 404/.test((e as Error).message)) return false;
+      if (/error 403/.test((e as Error).message)) {
+        throw new Error('Google Drive won’t let this app open that file. Make sure it is shared with this Google account, then choose it again with “Find it in Google Drive”.');
+      }
       throw e;
     }
   }

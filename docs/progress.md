@@ -10,7 +10,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
-- 2026-11-09: **Choose in Google Drive** (Google Picker), on a separate page `/drive-picker.html` so Google's script never runs next to church data. Create account → Drive → "Choose a folder in Google Drive". Sign in → Drive → "Find it in Google Drive" opens a church file someone shared with you (picking grants `drive.file` access). Needs `VITE_GOOGLE_API_KEY` + `VITE_GOOGLE_APP_ID`; without them the typed folder name is used. Not yet tried with a real key.
+- 2026-11-09: **Choose in Google Drive** (Google Picker), on a separate page `/drive-picker.html` so Google's script never runs next to church data. Create account → Drive → "Choose a folder in Google Drive". Sign in → Drive → "Find it in Google Drive" opens a church file someone shared with you (picking grants `drive.file` access). Needs `VITE_GOOGLE_API_KEY` (project number comes from the client ID); without them the typed folder name is used. Not yet tried with a real key.
 
 - 2026-11-09: Welcome page redone as **Sign in** / **Create a church account** (demo is a small link). Sign in goes straight to the church this browser used last time ("Different church" and "Forget" links), otherwise asks where the data lives (Drive/Dropbox/this computer) and opens the file directly if only one is found. Create account is 3 steps: church and person, then where to keep the data (Drive folder choice, Dropbox path, or local file), then the password. Answers that aren't secret survive the Google/Dropbox sign-in redirect via sessionStorage; the password is never stored.
 
@@ -53,7 +53,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Blocked on
 
-- Google Picker needs the author to enable the Picker API and add `VITE_GOOGLE_API_KEY` / `VITE_GOOGLE_APP_ID` (see docs/deploy.md step 6), then test that creating a church in a picked folder and opening a shared file both work.
+- Google Picker needs the author to enable the Picker API and add `VITE_GOOGLE_API_KEY` (see docs/deploy.md step 6), then test that creating a church in a picked folder and opening a shared file both work.
 
 - **Microsoft app registration** (needs you, only for M365 sending): Entra app, platform “Single-page application”, redirect `<origin>/oauth-callback.html`, delegated `Mail.Send`. Put the ID in `VITE_MS_CLIENT_ID`.
 - **Dropbox app key** (needs you, optional): see `.env.example`.
