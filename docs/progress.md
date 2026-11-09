@@ -59,25 +59,26 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Blocked on
 
-- Google Picker needs the author to enable the Picker API and add `VITE_GOOGLE_API_KEY` (see docs/deploy.md step 6), then test that creating a church in a picked folder and opening a shared file both work.
-
 - **Microsoft app registration** (needs you, only for M365 sending): Entra app, platform “Single-page application”, redirect `<origin>/oauth-callback.html`, delegated `Mail.Send`. Put the ID in `VITE_MS_CLIENT_ID`.
 - **Dropbox app key** (needs you, optional): see `.env.example`.
-- ~~Google OAuth client ID~~: done by the author 2026-11-06; Drive works locally. Still to confirm: Drive “Open with” (needs the Drive UI integration) and the production origin.
+- ~~Google OAuth client ID~~ and ~~Picker API key~~: done by the author; Drive and the picker work locally.
 
 ## Bugs
 
 - **Members page: "add a second admin" warning shows after import even with 2 admins** (reported 2026-11-06). Cause: `Members.tsx` counts only admins who have a password (`hasPassword`), and admins imported from the old app have none until someone sets one. The count is arguably right (that admin can't sign in yet) but the message is misleading. Fix: when admins without passwords exist, say “Set a password for <name> so they can sign in”, and add a “No password yet” badge in the list.
+- **Lock shows the editor's full name in plain text** on the Drive file's appProperties (and the Dropbox `.lock` file), outside the encryption. Fix idea: store only the editor's sign-in fingerprint plus an encrypted name.
 
 ## Under discussion (not scheduled; author will decide)
 
-- **Several people managing one Drive church:** with `drive.file` the app can't see a file someone else shared. Options discussed: Drive UI “Open with” (config only, desktop only), Google Picker on a separate page with no decrypted data (works on iPhone), auto read-only for Drive Viewers, Shared Drive support.
+- **Sign in with Google** instead of a Fidelia password: a random key kept in the member's hidden Drive app-data folder unlocks their slot. Never derive a key from the email address. Drawbacks discussed: the Google account becomes the only lock, shared office PCs stay signed in, Google holds both file and key, shared church accounts blur the audit log, Drive only. Suggested middle ground: optional “Google + PIN” per member, with passwords kept as the default.
 - **File ownership:** recommend creating the church from a church-owned Google account.
 - **“Move church to…”** (author's Save As idea): move to another Drive account/folder, Dropbox or local file, and mark the old file retired (read-only, “moved to …”) so two live copies can't drift apart.
+- ~~Several people managing one Drive church~~: solved by “Find it in Google Drive” (picker) plus invite codes.
 
 ## Next
 
-1. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
-2. End-to-end check with real Google/Microsoft/Dropbox accounts once client IDs exist (blocked, see above).
-
-The auto-resume job was cancelled on 2026-11-06 because only items needing the author remain (plus the Members bug, held at the author's request).
+1. **Author to test:** the full invite flow with two Google accounts (create invite → sign out → join with the code), and the folder chooser showing church files.
+2. **Author's Drive clean-up:** `Fidelia/` has two `church.fidelia`; the newer one (created 23:06 UTC, 4.7 KB) is the accidental duplicate.
+3. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
+4. After the first deploy: check that `/drive-picker.html` gets its own looser CSP and app pages keep the strict one (Cloudflare `_headers` detach syntax is unverified).
+5. End-to-end checks with real Microsoft/Dropbox accounts once their IDs exist (blocked, see above).
