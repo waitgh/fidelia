@@ -149,6 +149,17 @@ describe('edit lock in a session', () => {
     expect(listDonors(second.opened.db).map((d) => d.lastName)).toEqual(['Person']); // reloaded
   });
 
+  it('overlapping take-over attempts do not report ourselves as the other editor', async () => {
+    const { church } = await setup();
+    const second = await Church.unlock(church.adapter, 'tom', 'password1');
+    expect(second.readOnly).toBe(true);
+    church.close();
+    await new Promise((r) => setTimeout(r, 0));
+    const [a, b] = await Promise.all([second.takeLock(), second.takeLock()]);
+    expect([a, b]).toEqual([true, true]);
+    expect(second.lockedBy).toBeNull();
+  });
+
   it('closing the window with everything saved lets the next person edit at once', async () => {
     const { church } = await setup();
     createDonor(church.opened.db, { firstName: 'A', lastName: 'Unsaved' });

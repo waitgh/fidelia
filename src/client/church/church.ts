@@ -74,8 +74,19 @@ export class Church {
   get churchId() { return this.unlocked.header.churchId; }
   get readOnly() { return this.opened.readOnly || this.user?.role === 'viewer' || this.lockedBy !== null; }
 
-  /** Tries to become the editor. Safe to call again (e.g. "Try again" button). */
-  async takeLock(): Promise<boolean> {
+  private taking: Promise<boolean> | null = null;
+
+  /**
+   * Tries to become the editor. Safe to call again (e.g. "Try again" button). Overlapping calls
+   * (button + the 30 s auto-retry) share one attempt; otherwise the second would see the
+   * first one's fresh lock and report ourselves as the other editor.
+   */
+  takeLock(): Promise<boolean> {
+    this.taking ??= this.tryTakeLock().finally(() => { this.taking = null; });
+    return this.taking;
+  }
+
+  private async tryTakeLock(): Promise<boolean> {
     if (!hasLockStore(this.adapter) || this.opened.readOnly || this.user?.role === 'viewer') return true;
     const store = this.adapter;
     const r = await acquireLock(store, this.user?.displayName ?? 'Someone', { settleMs: Church.lockSettleMs, token: this.lock?.token });
