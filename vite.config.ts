@@ -1,11 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import path from 'path';
 import { readFileSync } from 'fs';
 const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'));
+// `npm run dev:phone`: HTTPS (Web Crypto needs a secure page) on the local network, for testing on a phone.
+const phone = process.env.FIDELIA_PHONE === '1';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), ...(phone ? [basicSsl()] : [])],
   resolve: {
     alias: {
       '@client': path.resolve(__dirname, 'src/client'),
@@ -15,6 +18,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    ...(phone ? { host: true, allowedHosts: ['.nip.io'] } : {}),
   },
   define: {
     __APP_VERSION__: JSON.stringify(version),

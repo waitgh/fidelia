@@ -46,3 +46,8 @@ src/
 scripts/    export-old-db.mjs (migrate from the old app), vendor-ocr.mjs
 public/     _headers (CSP), _redirects, oauth-callback page
 ```
+
+## Testing on a phone
+
+`npm run dev:phone` serves the app over HTTPS on your local network at port 5174. It uses a self-signed certificate, because Web Crypto only works on secure pages. Open `https://<ip-with-dashes>.nip.io:5174` on the phone (for example `https://192-168-86-241.nip.io:5174`) and accept the certificate warning. For Google sign-in, add that origin, and the same address with a trailing `/` as a redirect URI, to the OAuth client. Add it to the API key's allowed referrers too. Google doesn't accept bare IP addresses.
+
