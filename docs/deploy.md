@@ -19,6 +19,8 @@ The app is static files. There is no server to run and nothing that stores churc
    - Authorized redirect URIs: `https://<your-site>/`, `https://<your-site>/oauth-callback.html` (and the localhost equivalents)
 4. Optional, so people can open a shared church file: Drive API → **Drive UI integration**, Open URL `https://<your-site>/`, default MIME type `application/octet-stream`, file extension `fidelia`.
 5. Set `VITE_GOOGLE_CLIENT_ID` in Cloudflare Pages environment variables (and in `.env.local` for development).
+6. Optional, recommended: **Choose in Google Drive** (Google Picker). Enable the **Google Picker API**. Under Credentials, create an **API key** and restrict it to HTTP referrers (`http://localhost:5173/*` and `https://<your-domain>/*`) and to the Google Picker API. Copy the **project number** from the project dashboard. Set `VITE_GOOGLE_API_KEY` and `VITE_GOOGLE_APP_ID` (the project number). Without them, people type a folder name instead and can't open church files shared with them.
+   - The picker runs on its own page, `/drive-picker.html`, with its own CSP in `public/_headers`. That page loads Google's script and never holds church data. After deploying, check in the browser console that this page has the looser policy and that app pages still have the strict one.
 
 ## 3. Microsoft 365 sending (optional)
 

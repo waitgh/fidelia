@@ -1,7 +1,7 @@
 // Welcome screen: sign in, or create a church account (and choose where its data lives).
 // Everything happens in this browser; nothing is sent to a server.
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Loader2, AlertCircle, KeyRound, Printer, Cloud, FileLock2, LogIn, UserPlus, HardDrive } from 'lucide-react';
+import { Loader2, AlertCircle, FolderOpen, KeyRound, Printer, Cloud, FileLock2, LogIn, UserPlus, HardDrive } from 'lucide-react';
 import { useAuth } from '../lib/auth.js';
 import { LogoMark } from '../components/Logo.js';
 import { Church } from '../church/church';
@@ -13,6 +13,7 @@ import { getRecent, setRecent, type RecentChurch } from '../storage/recent';
 import { GoogleDriveAdapter } from '../storage/googleDrive';
 import { DropboxAdapter, dropboxAppKey, hasDropboxSession, startDropboxSignIn, completeDropboxSignIn } from '../storage/dropbox';
 import { getGoogleToken, googleClientId, startGoogleSignIn } from '../storage/googleAuth';
+import { openDrivePicker, pickerConfigured, takePickResult } from '../storage/drivePicker';
 
 type DriveFile = { id: string; name: string; modifiedTime?: string };
 
@@ -54,7 +55,8 @@ type Step =
 
 /** Non-secret create-account answers kept across the Google/Dropbox sign-in redirect. Never holds the password. */
 const PENDING_CREATE = 'fidelia.pendingCreate';
-type PendingCreate = { churchName: string; displayName: string; username: string; where: Where; driveFolder: string; driveFileName: string; dropboxPath: string };
+type Folder = { id: string; name: string };
+type PendingCreate = { churchName: string; displayName: string; username: string; where: Where; driveFolder: string; driveFileName: string; dropboxPath: string; pickedFolder: Folder | null };
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -160,6 +162,9 @@ export function Login() {
   const [driveFolder, setDriveFolder] = useState('Fidelia');
   const [driveFileName, setDriveFileName] = useState('Church.fidelia');
   const [dropboxPath, setDropboxPath] = useState('/Fidelia/Church.fidelia');
+  /** Folder chosen in the Google Picker; null = top of My Drive. */
+  const [pickedFolder, setPickedFolder] = useState<Folder | null>(null);
+  const canPick = driveConfigured && pickerConfigured();
 
   const forgetRecent = () => { void setRecent(null); setRecentState(null); };
   const go = (s: Step) => { a.setError(''); setPassword(''); setPassword2(''); setStep(s); };
@@ -207,15 +212,21 @@ export function Login() {
     }
   };
 
-  const driveCreateStep = (folder: string, fileName: string): Step => ({
-    s: 'createPassword',
-    label: `Google Drive: ${folder.trim() ? `${folder.trim()}/` : ''}${fileName.trim().replace(/\.fidelia$/i, '')}.fidelia`,
-    getAdapter: async () => {
-      const name = fileName.trim().replace(/\.fidelia$/i, '') + '.fidelia';
-      const parent = folder.trim() ? await GoogleDriveAdapter.ensureFolder(getGoogleToken, folder.trim()) : undefined;
-      return GoogleDriveAdapter.create(getGoogleToken, name, parent);
-    },
-  });
+  /** `folder` is a picked folder, a folder name to find/create, or '' for the top of My Drive. */
+  const driveCreateStep = (folder: Folder | string, fileName: string): Step => {
+    const name = fileName.trim().replace(/\.fidelia$/i, '') + '.fidelia';
+    const folderName = typeof folder === 'string' ? folder.trim() : folder.name;
+    return {
+      s: 'createPassword',
+      label: `Google Drive: ${folderName ? `${folderName}/` : ''}${name}`,
+      getAdapter: async () => {
+        const parent = typeof folder !== 'string' ? folder.id
+          : folderName ? await GoogleDriveAdapter.ensureFolder(getGoogleToken, folderName) : undefined;
+        return GoogleDriveAdapter.create(getGoogleToken, name, parent);
+      },
+    };
+  };
+  const driveFolderChoice = (p: { driveFolder: string; pickedFolder: Folder | null }) => (canPick ? p.pickedFolder ?? '' : p.driveFolder);
   const dropboxCreateStep = (path: string): Step => {
     const ad = new DropboxAdapter(path.endsWith('.fidelia') ? path : `${path}.fidelia`);
     return { s: 'createPassword', label: ad.describe(), getAdapter: async () => ad };
@@ -228,12 +239,26 @@ export function Login() {
     sessionStorage.removeItem(PENDING_CREATE);
     if (!p) return null;
     setChurchName(p.churchName); setDisplayName(p.displayName); setUsername(p.username);
-    setWhere(p.where); setDriveFolder(p.driveFolder); setDriveFileName(p.driveFileName); setDropboxPath(p.dropboxPath);
+    setWhere(p.where); setDriveFolder(p.driveFolder); setDriveFileName(p.driveFileName); setDropboxPath(p.dropboxPath); setPickedFolder(p.pickedFolder ?? null);
     return p;
   };
 
   // Resume after a Google/Dropbox redirect, or after Drive "Open with".
   useEffect(() => {
+    // Back from the Google Picker page.
+    const picked = takePickResult();
+    if (picked) {
+      if (picked.mode === 'folder') {
+        const p = resumeCreate();
+        if (picked.id) setPickedFolder({ id: picked.id, name: picked.name ?? 'Chosen folder' });
+        setWhere('drive');
+        setStep(p ? { s: 'createWhere' } : { s: 'create' });
+      } else if (picked.id) {
+        void openDriveFile({ id: picked.id, name: picked.name ?? 'Church file' });
+      } else setStep({ s: 'signinWhere' });
+      if (picked.error) a.setError(picked.error);
+      return;
+    }
     const resume = sessionStorage.getItem('fidelia.resume');
     sessionStorage.removeItem('fidelia.resume');
     const startupError = (window as any).__fideliaStartupError as string;
@@ -249,7 +274,7 @@ export function Login() {
     }
     if (resume === 'google-drive') {
       const p = resumeCreate();
-      if (p?.where === 'drive' && getGoogleToken()) { go(driveCreateStep(p.driveFolder, p.driveFileName)); return; }
+      if (p?.where === 'drive' && getGoogleToken()) { go(driveCreateStep(driveFolderChoice(p), p.driveFileName)); return; }
     }
     if (resume === 'google-drive' || driveOpenRequest()) void openDrive();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,7 +365,11 @@ export function Login() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-gray-600">No church account found in this Google Drive. If someone shared the church file with you, open it in Google Drive and choose <b>Open with → Fidelia Ledger</b>. Otherwise, go back and create a church account.</p>
+          <p className="text-sm text-gray-600">No church account found yet. If someone shared the church file with you, {canPick ? <>choose <b>Find it in Google Drive</b> below.</> : <>open it in Google Drive and choose <b>Open with → Fidelia Ledger</b>.</>} Otherwise, go back and create a church account.</p>
+        )}
+        {canPick && (
+          <button type="button" className="btn-secondary w-full" disabled={a.busy} onClick={() => openDrivePicker('file')}>
+            <FolderOpen className="h-4 w-4" /> Find it in Google Drive</button>
         )}
         <Back onClick={() => go({ s: 'start' })} />
       </Shell>
@@ -454,11 +483,11 @@ export function Login() {
   if (step.s === 'createWhere') {
     const next = () => a.run(async () => {
       if (!where) throw new Error('Choose where to keep your church’s data');
-      const pending: PendingCreate = { churchName, displayName, username, where, driveFolder, driveFileName, dropboxPath };
+      const pending: PendingCreate = { churchName, displayName, username, where, driveFolder, driveFileName, dropboxPath, pickedFolder };
       if (where === 'drive') {
         if (!driveFileName.trim()) throw new Error('Enter a file name');
         if (!getGoogleToken()) { sessionStorage.setItem(PENDING_CREATE, JSON.stringify(pending)); startGoogleSignIn('/'); return; }
-        go(driveCreateStep(driveFolder, driveFileName));
+        go(driveCreateStep(driveFolderChoice({ driveFolder, pickedFolder }), driveFileName));
       } else if (where === 'dropbox') {
         if (!hasDropboxSession()) {
           sessionStorage.setItem(PENDING_CREATE, JSON.stringify(pending));
@@ -479,13 +508,25 @@ export function Login() {
         <ErrorBox error={a.error} />
         {driveConfigured && (
           <Option icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Recommended. Works on any computer and iPhone." selected={where === 'drive'} onClick={() => setWhere('drive')}>
-            <label className="flex items-center gap-2">
-              <input type="radio" checked={driveFolder !== ''} onChange={() => setDriveFolder('Fidelia')} /> In a folder named
-              <input className="input py-1 flex-1 min-w-0" value={driveFolder} disabled={driveFolder === ''} onChange={(e) => setDriveFolder(e.target.value)} />
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="radio" checked={driveFolder === ''} onChange={() => setDriveFolder('')} /> At the top of My Drive
-            </label>
+            {canPick ? (
+              <div className="space-y-1">
+                <p>Folder: <b>{pickedFolder?.name ?? 'Top of My Drive'}</b>
+                  {pickedFolder && <> · <button type="button" className="underline text-gray-500" onClick={() => setPickedFolder(null)}>use top of My Drive</button></>}</p>
+                <button type="button" className="btn-secondary w-full" disabled={a.busy} onClick={() => {
+                  sessionStorage.setItem(PENDING_CREATE, JSON.stringify({ churchName, displayName, username, where: 'drive', driveFolder, driveFileName, dropboxPath, pickedFolder } satisfies PendingCreate));
+                  openDrivePicker('folder');
+                }}><FolderOpen className="h-4 w-4" /> {pickedFolder ? 'Choose a different folder' : 'Choose a folder in Google Drive'}</button>
+                <p className="text-xs text-gray-500">Make a new folder in Google Drive first if you want one, then choose it here.</p>
+              </div>
+            ) : (<>
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={driveFolder !== ''} onChange={() => setDriveFolder('Fidelia')} /> In a folder named
+                <input className="input py-1 flex-1 min-w-0" value={driveFolder} disabled={driveFolder === ''} onChange={(e) => setDriveFolder(e.target.value)} />
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="radio" checked={driveFolder === ''} onChange={() => setDriveFolder('')} /> At the top of My Drive
+              </label>
+            </>)}
             <label className="flex items-center gap-2">File name
               <input className="input py-1 flex-1 min-w-0" value={driveFileName} onChange={(e) => setDriveFileName(e.target.value)} />
             </label>

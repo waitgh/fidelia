@@ -13,7 +13,10 @@ setPendingStore({ get: getPendingSave, set: setPendingSave });
 // Returning from Google sign-in: store the token, then continue the Drive flow.
 let googleError = '';
 try {
-  if (completeGoogleSignIn() !== null) sessionStorage.setItem('fidelia.resume', 'google-drive');
+  const returnPath = completeGoogleSignIn();
+  // Signed in on the way to the Drive picker page: carry on there.
+  if (returnPath?.startsWith('/drive-picker.html')) location.replace(returnPath);
+  else if (returnPath !== null) sessionStorage.setItem('fidelia.resume', 'google-drive');
 } catch (e) {
   googleError = (e as Error).message;
 }
