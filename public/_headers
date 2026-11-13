@@ -9,8 +9,12 @@
 
 # The Drive picker page runs Google's Picker script, so it gets its own, looser policy.
 # It never holds church data or keys (see src/client/storage/drivePicker.ts).
+# Google checks the API key's website restriction against the referrer, so this page
+# sends its origin (never the path or query) instead of no referrer at all.
 /drive-picker*
   ! Content-Security-Policy
+  ! Referrer-Policy
+  Referrer-Policy: strict-origin
   Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://www.googleapis.com https://content.googleapis.com; frame-src https://docs.google.com https://drive.google.com https://accounts.google.com https://content.googleapis.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
 
 /assets/*
