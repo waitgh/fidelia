@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { users } from '../../db/schema';
 import { openDatabase, exportDatabase, type OpenedDb } from '../data/db';
 import { updateSetting } from '../data/settings';
+import { createCategory } from '../data/categories';
 import { writeAudit } from '../data/auditLog';
 import { hasLockStore, type LockInfo, type StorageAdapter } from '../storage/types';
 import { acquireLock, renewLock, releaseLock, HEARTBEAT_MS } from './lock';
@@ -30,6 +31,9 @@ export interface Member {
 }
 
 /** Opens a plain SQLite file from the old app (or a new empty database). */
+/** Fund categories a brand-new church starts with (renamable later in Categories). */
+export const DEFAULT_CATEGORIES = ['General', 'Building', 'Mercy', 'Mission'];
+
 async function openPlainImport(bytes?: Uint8Array): Promise<OpenedDb> {
   if (!bytes) return openDatabase();
   const head = new TextDecoder().decode(bytes.subarray(0, 15));
@@ -144,6 +148,7 @@ export class Church {
     if (existing) opened.db.update(users).set({ ...member, isActive: true, passwordHash: hint }).where(eq(users.id, existing.id)).run();
     else opened.db.insert(users).values({ ...member, passwordHash: hint }).run();
     if (p.churchName) updateSetting(opened.db, 'churchName', p.churchName);
+    if (!p.importBytes) for (const name of DEFAULT_CATEGORIES) createCategory(opened.db, { name });
     const church = new Church(adapter, unlocked, opened, member);
     await church.saveNow();
     await church.takeLock().catch(() => {});

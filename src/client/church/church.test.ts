@@ -3,6 +3,7 @@ import { Church } from './church';
 import { MemoryAdapter } from '../storage/memory';
 import { createDonor, listDonors } from '../data/donors';
 import { getAllSettings } from '../data/settings';
+import { listCategories } from '../data/categories';
 import { readHeader } from '../crypto/envelope';
 
 Church.lockSettleMs = 0;
@@ -10,6 +11,11 @@ Church.lockSettleMs = 0;
 const setup = () => Church.create(new MemoryAdapter(), { churchName: 'Grace', username: 'tom', displayName: 'Tom', password: 'password1' });
 
 describe('Church session', () => {
+  it('starts a new church with the default fund categories', async () => {
+    const { church } = await setup();
+    expect(listCategories(church.opened.db).map((c) => c.name).sort()).toEqual(['Building', 'General', 'Mercy', 'Mission']);
+  });
+
   it('creates, saves encrypted, and unlocks with password', async () => {
     const { church } = await setup();
     createDonor(church.opened.db, { firstName: 'Amy', lastName: 'Wang' });
@@ -124,6 +130,7 @@ describe('import from old app', () => {
     const bytes = old.raw.export();
     const { church } = await Church.create(new MemoryAdapter(), { churchName: '', username: 'treasurer', displayName: 'Tre', password: 'password1', importBytes: bytes });
     expect(listDonors(church.opened.db).map((d) => d.lastName)).toEqual(['Donor']);
+    expect(listCategories(church.opened.db)).toEqual([]); // imports keep their own categories
     expect(church.listMembers().map((m) => [m.username, m.role, m.hasPassword])).toEqual([['treasurer', 'admin', true], ['viewer1', 'viewer', false]]);
     await Church.unlock(church.adapter, 'treasurer', 'password1');
     await expect(Church.create(new MemoryAdapter(), { churchName: '', username: 'x', displayName: '', password: 'password1', importBytes: new Uint8Array(100) })).rejects.toThrow('encrypted');
