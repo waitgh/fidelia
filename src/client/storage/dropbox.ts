@@ -126,6 +126,20 @@ export class DropboxAdapter implements StorageAdapter, LockStore {
       .sort((a: any, b: any) => b.modified.localeCompare(a.modified));
   }
 
+  /** True if a file is at this path (false when it was moved, deleted or never shared with this account). */
+  async exists(): Promise<boolean> {
+    try {
+      const m = await rpc('/files/get_metadata', { path: this.path });
+      return m?.['.tag'] === 'file';
+    } catch (e) {
+      if ((e as { status?: number }).status === 409) return false;
+      throw e;
+    }
+  }
+
+  /** The folder holding the church file, e.g. "/Fidelia" (what to share with other treasurers). */
+  get folder() { return this.path.slice(0, this.path.lastIndexOf('/')) || '/'; }
+
   async load(): Promise<Uint8Array | null> {
     const r = await download({ path: this.path });
     if (!r) return null;

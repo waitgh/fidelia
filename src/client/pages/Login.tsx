@@ -41,7 +41,7 @@ type Step =
   /** Sign in: where is the church's data? */
   | { s: 'signinWhere' }
   | { s: 'drive'; files: DriveFile[] }
-  | { s: 'dropbox'; files: { path: string; name: string; modified: string }[] }
+  | { s: 'dropbox'; files: { path: string; name: string; modified: string }[]; notice?: string }
   | { s: 'unlock'; adapter: StorageAdapter }
   | { s: 'recover'; adapter: StorageAdapter }
   | { s: 'claim'; church: Church }
@@ -165,6 +165,7 @@ export function Login() {
   const [driveFolder, setDriveFolder] = useState('Fidelia');
   const [driveFileName, setDriveFileName] = useState('Church.fidelia');
   const [dropboxPath, setDropboxPath] = useState('/Fidelia/Church.fidelia');
+  const [dropboxManual, setDropboxManual] = useState('');
   /** Folder chosen in the Google Picker; null = top of My Drive. */
   const [pickedFolder, setPickedFolder] = useState<Folder | null>(null);
   const canPick = driveConfigured && pickerConfigured();
@@ -196,7 +197,15 @@ export function Login() {
   const openDropbox = () => a.run(async () => {
     if (!hasDropboxSession()) { sessionStorage.setItem('fidelia.resume', 'dropbox'); await startDropboxSignIn(); return; }
     const want = sessionStorage.getItem('fidelia.dropboxOpen');
-    if (want) { sessionStorage.removeItem('fidelia.dropboxOpen'); go({ s: 'unlock', adapter: new DropboxAdapter(want) }); return; }
+    if (want) {
+      sessionStorage.removeItem('fidelia.dropboxOpen');
+      const ad = new DropboxAdapter(want);
+      if (await ad.exists()) { go({ s: 'unlock', adapter: ad }); return; }
+      // Moved, renamed, or no longer shared with this account: look for it again.
+      if (recent?.kind === 'dropbox' && String(recent.ref) === want) forgetRecent();
+      go({ s: 'dropbox', files: await DropboxAdapter.list(), notice: `The church file is no longer at ${want}. Choose it below.` });
+      return;
+    }
     const files = await DropboxAdapter.list();
     if (files.length === 1) { go({ s: 'unlock', adapter: new DropboxAdapter(files[0]!.path) }); return; }
     go({ s: 'dropbox', files });
@@ -396,7 +405,7 @@ export function Login() {
     return (
       <Shell>
         <Title>Choose your church</Title>
-        <ErrorBox error={a.error} />
+        <ErrorBox error={a.error || step.notice || ''} />
         {step.files.length ? (
           <ul className="space-y-2">
             {step.files.map((f) => (
@@ -409,7 +418,32 @@ export function Login() {
               </li>
             ))}
           </ul>
-        ) : <p className="text-sm text-gray-600">No church account found in this Dropbox. Ask whoever set it up to share the folder with you, or go back and create a church account.</p>}
+        ) : (
+          <div className="text-sm text-gray-600 space-y-2">
+            <p>No church file found in this Dropbox yet.</p>
+            <p>If another treasurer set up the church: ask them to share the church’s folder with you in Dropbox, then open Dropbox’s invitation email and choose <b>Open</b> or <b>Add to Dropbox</b>. It can take a minute to show up here.</p>
+            <p>Otherwise, go back and create a church account.</p>
+          </div>
+        )}
+        <button type="button" className="btn-secondary w-full" disabled={a.busy}
+          onClick={() => a.run(async () => go({ s: 'dropbox', files: await DropboxAdapter.list() }))}>Look again</button>
+        <details className="text-sm">
+          <summary className="cursor-pointer text-gray-600">Know where the file is?</summary>
+          <form className="mt-2 flex gap-2" onSubmit={(e) => {
+            e.preventDefault();
+            const raw = dropboxManual.trim();
+            if (!raw) return;
+            const path = (raw.startsWith('/') ? raw : `/${raw}`).replace(/(\.fidelia)?$/i, '.fidelia');
+            a.run(async () => {
+              const ad = new DropboxAdapter(path);
+              if (!(await ad.exists())) throw new Error(`No church file at ${path} in this Dropbox.`);
+              go({ s: 'unlock', adapter: ad });
+            });
+          }}>
+            <input className="input py-1 flex-1 min-w-0" placeholder="/Fidelia/Church.fidelia" value={dropboxManual} onChange={(e) => setDropboxManual(e.target.value)} />
+            <button className="btn-secondary" disabled={a.busy}>Open</button>
+          </form>
+        </details>
         <Back onClick={() => go({ s: 'start' })} />
       </Shell>
     );
@@ -566,7 +600,7 @@ export function Login() {
         <p className="text-sm text-gray-500 text-center">Your data is stored, encrypted, in your own account. Other treasurers will sign in to the same place.</p>
         <ErrorBox error={a.error} />
         {driveConfigured && (
-          <Option icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Recommended. Works on any computer and iPhone." selected={where === 'drive'} onClick={() => setWhere('drive')}>
+          <Option icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Best for a church with one treasurer. Adding others needs Chrome or Edge once." selected={where === 'drive'} onClick={() => setWhere('drive')}>
             {pickedFolder ? (
               <p>Folder: <b>{pickedFolder.name}</b> (chosen in Google Drive) · <button type="button" className="underline text-gray-500" onClick={() => setPickedFolder(null)}>type a folder name instead</button></p>
             ) : (<>
@@ -594,10 +628,11 @@ export function Login() {
           </Option>
         )}
         {dropboxConfigured && (
-          <Option icon={<Cloud className="h-5 w-5" />} title="Dropbox" text="Works on any computer and iPhone." selected={where === 'dropbox'} onClick={() => setWhere('dropbox')}>
+          <Option icon={<Cloud className="h-5 w-5" />} title="Dropbox" text="Recommended. Works in any browser, on any computer and iPhone. A free Dropbox account is enough." selected={where === 'dropbox'} onClick={() => setWhere('dropbox')}>
             <label className="block"><span className="text-gray-600">File location</span>
               <input className="input py-1" value={dropboxPath} onChange={(e) => setDropboxPath(e.target.value)} />
             </label>
+            <p className="text-xs text-gray-500">Keep the church file in its own folder. To add other treasurers later, you share that folder with them in Dropbox. You can move or rename it later; others just choose it again.</p>
           </Option>
         )}
         <Option icon={<HardDrive className="h-5 w-5" />} title="A file on this computer" disabled={!fileSupported} selected={where === 'local'}

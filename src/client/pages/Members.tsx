@@ -1,5 +1,6 @@
 // Church members: each has their own password slot on the encrypted file.
 // Roles are enforced in the UI only (there is no server).
+import type { DropboxAdapter } from '../storage/dropbox';
 import { useState, type FormEvent } from 'react';
 import { UserPlus, KeyRound, Trash2, Loader2, Mail, Copy, X } from 'lucide-react';
 import { useAuth } from '../lib/auth';
@@ -24,7 +25,7 @@ export function Members() {
   const where = church.adapter.kind === 'google-drive'
     ? { share: 'In Google Drive, share the church file with their Google account (as Editor, or Viewer for viewers).', find: 'Sign in → Google Drive → Find it in Google Drive' }
     : church.adapter.kind === 'dropbox'
-      ? { share: 'In Dropbox, share the folder that holds the church file with them.', find: 'Sign in → Dropbox' }
+      ? { share: `In Dropbox, share the folder ${(church.adapter as DropboxAdapter).folder} with their email address (they can use a free Dropbox account). Leave “Can edit” on, even for viewers: Fidelia itself keeps viewers read-only. They must accept Dropbox’s invitation email.`, find: 'Sign in → Dropbox' }
       : { share: 'Give them a copy of the church file, or put it somewhere you both can reach.', find: 'Sign in → A file on this computer' };
   const members = church.listMembers().filter((m) => m.isActive);
   const admins = members.filter((m) => m.role === 'admin' && m.hasPassword).length;

@@ -4,7 +4,13 @@
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const KEY = 'fidelia.google.token';
 
-export const googleClientId = (): string | undefined => import.meta.env.VITE_GOOGLE_CLIENT_ID || undefined;
+/**
+ * Google (Drive storage, the Drive picker, Gmail sending) is off unless VITE_ENABLE_GOOGLE=1.
+ * It is hidden for now: Google's file picker breaks in Safari/iPhone/Firefox, which a second
+ * treasurer needs to reach a shared Drive file. Dropbox is the default instead.
+ */
+export const googleEnabled = () => import.meta.env.VITE_ENABLE_GOOGLE === '1';
+export const googleClientId = (): string | undefined => (googleEnabled() && import.meta.env.VITE_GOOGLE_CLIENT_ID) || undefined;
 
 interface Stored { token: string; expiresAt: number }
 

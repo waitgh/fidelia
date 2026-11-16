@@ -10,7 +10,17 @@ The app is static files. There is no server to run and nothing that stores churc
 4. Each branch gets a preview URL; use one as staging.
 5. Turn on 2FA for GitHub, Cloudflare and npm. Whoever can change the deployed JavaScript can read church data, so these accounts are the real security boundary.
 
-## 2. Google (Drive storage, optional Gmail sending)
+## 2. Dropbox (default storage)
+
+1. https://www.dropbox.com/developers/apps → Create app → **Scoped access** → **Full Dropbox** (shared folders are how treasurers share a church, and they are outside an app folder).
+2. Permissions tab: `files.metadata.read`, `files.content.read`, `files.content.write`. Submit.
+3. Settings tab → OAuth 2 redirect URIs: `https://<your-site>/` and `http://localhost:5173/`.
+4. Set `VITE_DROPBOX_APP_KEY` (the App key; never the App secret, which the site doesn't use) in Cloudflare Pages and `.env.local`.
+5. A new app is in development status: at most 50 Dropbox accounts, across all churches. Before a wide release, apply for **production** in the app console (free review; needs a working app and a privacy policy).
+
+## 2b. Google (hidden unless `VITE_ENABLE_GOOGLE=1`)
+
+Google Drive storage, the Drive picker and Gmail sending are hidden for now: the picker (needed for a second treasurer to reach a shared Drive file) fails in Safari, on iPhone and in Firefox because those browsers block its cookies. The setup below still applies if you turn it on.
 
 1. Create a Google Cloud project. Enable the **Google Drive API** (and the **Gmail API** for Gmail sending).
 2. OAuth consent screen: External. Scopes: `drive.file` (and `gmail.send` if used). `gmail.send` is a sensitive scope, so Google requires app verification before public use.

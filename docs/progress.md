@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-15: **Dropbox is the default storage; Google is hidden** (`VITE_ENABLE_GOOGLE=1` brings back Drive storage, the picker and Gmail sending). Why: Google's picker fails in Safari/iPhone/Firefox, and it is the only way a second treasurer reaches a shared Drive file. Dropbox shared folders work in every browser. Dropbox sign-in now checks a remembered church is still at its path (otherwise lists files again), has "Look again" and "Know where the file is?" (type a path), explains accepting Dropbox's share invitation, and Members → Invite names the exact folder to share. Tests in dropbox.test.ts.
+
 - 2026-11-15: **Google Picker fails in Safari / on iPhone / without Google cookies** ("The API developer key is invalid" after Google's cookie-consent page). Cause: the picker is a docs.google.com iframe, and those browsers block its cookies as third-party, so consent can't be saved. Not fixable on our side. Creating a church now always offers the typed folder name, with the picker as an optional extra. The "find a shared file" step explains to do it once on a computer in Chrome; `drive.file` access is per Google account, so the church then appears on every device. Also: live site went up at https://fidelia-browser.pages.dev; the picker page sends `Referrer-Policy: strict-origin` so the key's website restriction can match; new churches start with funds General, Building, Mercy, Mission.
 
 - 2026-11-09: Fixed both open bugs. (1) The Members page names admins who have no password yet (e.g. imported from the old app), tells you to set one, and shows a "No password yet" badge. (2) The edit lock's editor name is now encrypted with the church data key (`sealString`/`openString`, `e1:` prefix, capped at 30 bytes to fit Drive appProperties), so only members can see who is editing. Older plain locks still display.
@@ -63,8 +65,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Blocked on
 
+- **Dropbox app key** (needs you, now the main storage): see docs/deploy.md §2. Then I test the two-treasurer flow end to end.
 - **Microsoft app registration** (needs you, only for M365 sending): Entra app, platform “Single-page application”, redirect `<origin>/oauth-callback.html`, delegated `Mail.Send`. Put the ID in `VITE_MS_CLIENT_ID`.
-- **Dropbox app key** (needs you, optional): see `.env.example`.
 - ~~Google OAuth client ID~~ and ~~Picker API key~~: done by the author; Drive and the picker work locally.
 
 ## Bugs

@@ -23,6 +23,10 @@ beforeEach(() => {
       files.set(arg.path, { bytes: new Uint8Array(init.body as Uint8Array), rev });
       return new Response(JSON.stringify({ rev }));
     }
+    if (url.endsWith('/files/get_metadata')) {
+      const { path } = JSON.parse(init.body as string);
+      return files.has(path) ? new Response(JSON.stringify({ '.tag': 'file' })) : new Response('{"error_summary":"path/not_found/"}', { status: 409 });
+    }
     return new Response('{}', { status: 404 });
   }));
 });
@@ -44,5 +48,13 @@ describe('DropboxAdapter', () => {
     expect(await a.readLock()).toEqual({ owner: 'Zoë', token: 'x', expiresAt: 5 });
     await a.writeLock(null);
     expect(await a.readLock()).toBeNull();
+  });
+  it('tells whether the church file is still at its path', async () => {
+    const a = new DropboxAdapter('/Fidelia/Church.fidelia');
+    expect(a.folder).toBe('/Fidelia');
+    expect(new DropboxAdapter('/top.fidelia').folder).toBe('/');
+    expect(await a.exists()).toBe(false);
+    await a.save(new Uint8Array([1]));
+    expect(await a.exists()).toBe(true);
   });
 });
