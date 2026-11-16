@@ -232,7 +232,7 @@ export function Login() {
       },
     };
   };
-  const driveFolderChoice = (p: { driveFolder: string; pickedFolder: Folder | null }) => (canPick ? p.pickedFolder ?? '' : p.driveFolder);
+  const driveFolderChoice = (p: { driveFolder: string; pickedFolder: Folder | null }) => p.pickedFolder ?? p.driveFolder;
   const dropboxCreateStep = (path: string): Step => {
     const ad = new DropboxAdapter(path.endsWith('.fidelia') ? path : `${path}.fidelia`);
     return { s: 'createPassword', label: ad.describe(), getAdapter: async () => ad };
@@ -383,6 +383,9 @@ export function Login() {
         {canPick && (
           <button type="button" className="btn-secondary w-full" disabled={a.busy} onClick={() => openDrivePicker('file')}>
             <FolderOpen className="h-4 w-4" /> Find it in Google Drive</button>
+        )}
+        {canPick && (
+          <p className="text-xs text-gray-500">If Google shows an error such as “developer key is invalid” (common in Safari and on iPhone, which block Google’s cookies inside other sites), do this step once on a computer in Chrome. You only need to find the file once: after that it shows up here on every device you sign in to with the same Google account.</p>
         )}
         <Back onClick={() => go({ s: 'start' })} />
       </Shell>
@@ -564,16 +567,8 @@ export function Login() {
         <ErrorBox error={a.error} />
         {driveConfigured && (
           <Option icon={<Cloud className="h-5 w-5" />} title="Google Drive" text="Recommended. Works on any computer and iPhone." selected={where === 'drive'} onClick={() => setWhere('drive')}>
-            {canPick ? (
-              <div className="space-y-1">
-                <p>Folder: <b>{pickedFolder?.name ?? 'Top of My Drive'}</b>
-                  {pickedFolder && <> · <button type="button" className="underline text-gray-500" onClick={() => setPickedFolder(null)}>use top of My Drive</button></>}</p>
-                <button type="button" className="btn-secondary w-full" disabled={a.busy} onClick={() => {
-                  sessionStorage.setItem(PENDING_CREATE, JSON.stringify({ churchName, displayName, username, where: 'drive', driveFolder, driveFileName, dropboxPath, pickedFolder } satisfies PendingCreate));
-                  openDrivePicker('folder');
-                }}><FolderOpen className="h-4 w-4" /> {pickedFolder ? 'Choose a different folder' : 'Choose a folder in Google Drive'}</button>
-                <p className="text-xs text-gray-500">Make a new folder in Google Drive first if you want one, then choose it here.</p>
-              </div>
+            {pickedFolder ? (
+              <p>Folder: <b>{pickedFolder.name}</b> (chosen in Google Drive) · <button type="button" className="underline text-gray-500" onClick={() => setPickedFolder(null)}>type a folder name instead</button></p>
             ) : (<>
               <label className="flex items-center gap-2">
                 <input type="radio" checked={driveFolder !== ''} onChange={() => setDriveFolder('Fidelia')} /> In a folder named
@@ -583,6 +578,15 @@ export function Login() {
                 <input type="radio" checked={driveFolder === ''} onChange={() => setDriveFolder('')} /> At the top of My Drive
               </label>
             </>)}
+            {canPick && (
+              <div className="space-y-1">
+                <button type="button" className="btn-secondary w-full" disabled={a.busy} onClick={() => {
+                  sessionStorage.setItem(PENDING_CREATE, JSON.stringify({ churchName, displayName, username, where: 'drive', driveFolder, driveFileName, dropboxPath, pickedFolder } satisfies PendingCreate));
+                  openDrivePicker('folder');
+                }}><FolderOpen className="h-4 w-4" /> {pickedFolder ? 'Choose a different folder' : 'Or choose an existing folder in Google Drive'}</button>
+                <p className="text-xs text-gray-500">Optional. If Google shows an error there (common in Safari and on iPhone, which block Google’s cookies inside other sites), close it and type a folder name instead.</p>
+              </div>
+            )}
             <label className="flex items-center gap-2">File name
               <input className="input py-1 flex-1 min-w-0" value={driveFileName} onChange={(e) => setDriveFileName(e.target.value)} />
             </label>

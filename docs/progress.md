@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-15: **Google Picker fails in Safari / on iPhone / without Google cookies** ("The API developer key is invalid" after Google's cookie-consent page). Cause: the picker is a docs.google.com iframe, and those browsers block its cookies as third-party, so consent can't be saved. Not fixable on our side. Creating a church now always offers the typed folder name, with the picker as an optional extra. The "find a shared file" step explains to do it once on a computer in Chrome; `drive.file` access is per Google account, so the church then appears on every device. Also: live site went up at https://fidelia-browser.pages.dev; the picker page sends `Referrer-Policy: strict-origin` so the key's website restriction can match; new churches start with funds General, Building, Mercy, Mission.
+
 - 2026-11-09: Fixed both open bugs. (1) The Members page names admins who have no password yet (e.g. imported from the old app), tells you to set one, and shows a "No password yet" badge. (2) The edit lock's editor name is now encrypted with the church data key (`sealString`/`openString`, `e1:` prefix, capped at 30 bytes to fit Drive appProperties), so only members can see who is editing. Older plain locks still display.
 
 - 2026-11-09: Drive folder chooser now shows church files too (it used to show only folders, so a folder holding the church looked empty and a duplicate got created). Picking an existing church file there opens it for sign-in. Creating a church refuses a file name that already exists in that folder.
