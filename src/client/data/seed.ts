@@ -1,6 +1,6 @@
 // Fictional sample data for the demo church and for development.
 import type { AppDb } from './db';
-import { createCategory } from './categories';
+import { createCategory, listCategories } from './categories';
 import { createDonor } from './donors';
 import { createBatch, closeBatch } from './batches';
 import { createOffering } from './offerings';
@@ -10,7 +10,9 @@ import { updateSetting } from './settings';
 export function seedDemo(db: AppDb, year = new Date().getFullYear()) {
   updateSetting(db, 'churchName', 'Grace Community Church (Demo)');
   updateSetting(db, 'congregationOptions', ['English', 'Mandarin', 'Youth']);
-  const cats = ['General Fund', 'Missions', 'Building Fund', 'Lunch'].map((name) => createCategory(db, { name }).id);
+  // Reuse the categories every new church starts with (General, Building, Mercy, Mission); add Lunch.
+  const existing = new Map(listCategories(db).map((c) => [c.name, c.id]));
+  const cats = ['General', 'Mission', 'Building', 'Lunch'].map((name) => existing.get(name) ?? createCategory(db, { name }).id);
   const people: [string, string, string, string?][] = [
     ['Grace', 'Chen', 'English', 'grace.chen@example.com'],
     ['David', 'Lee', 'Mandarin', 'david.lee@example.com'],
