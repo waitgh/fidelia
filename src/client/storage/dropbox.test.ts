@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DropboxAdapter } from './dropbox';
+import { DropboxAdapter, joinPath, parentOf, folderNameProblem, listDropboxFolder, createDropboxFolder } from './dropbox';
 import { ConflictError } from './googleDrive';
 
 const files = new Map<string, { bytes: Uint8Array; rev: string }>();
@@ -22,6 +22,17 @@ beforeEach(() => {
       const rev = `r${++revN}`;
       files.set(arg.path, { bytes: new Uint8Array(init.body as Uint8Array), rev });
       return new Response(JSON.stringify({ rev }));
+    }
+    if (url.endsWith('/files/list_folder') || url.endsWith('/files/list_folder/continue')) {
+      const page2 = url.endsWith('/continue');
+      return new Response(JSON.stringify(page2
+        ? { entries: [{ '.tag': 'file', name: 'Grace.fidelia', path_display: '/Grace.fidelia' }], has_more: false }
+        : { entries: [{ '.tag': 'file', name: 'notes.txt', path_display: '/notes.txt' }, { '.tag': 'folder', name: 'Zion', path_display: '/Zion', sharing_info: {} }, { '.tag': 'folder', name: 'Archive', path_display: '/Archive' }], has_more: true, cursor: 'c' }));
+    }
+    if (url.endsWith('/files/create_folder_v2')) {
+      const { path } = JSON.parse(init.body as string);
+      if (path === '/Taken') return new Response('{"error_summary":"path/conflict/folder/"}', { status: 409 });
+      return new Response(JSON.stringify({ metadata: { path_display: path } }));
     }
     if (url.endsWith('/files/get_metadata')) {
       const { path } = JSON.parse(init.body as string);
@@ -56,5 +67,23 @@ describe('DropboxAdapter', () => {
     expect(await a.exists()).toBe(false);
     await a.save(new Uint8Array([1]));
     expect(await a.exists()).toBe(true);
+  });
+  it('joins and splits paths, with "" as the top of Dropbox', () => {
+    expect(joinPath('', 'Fidelia')).toBe('/Fidelia');
+    expect(joinPath('/Fidelia', 'Church.fidelia')).toBe('/Fidelia/Church.fidelia');
+    expect(parentOf('/Fidelia/Church.fidelia')).toBe('/Fidelia');
+    expect(parentOf('/Church.fidelia')).toBe('');
+    expect(folderNameProblem('  ')).toMatch(/Type/);
+    expect(folderNameProblem('a/b')).toMatch(/can’t contain/);
+    expect(folderNameProblem('Fidelia 2026')).toBeNull();
+  });
+  it('lists folders first, then church files only, across pages', async () => {
+    const list = await listDropboxFolder('');
+    expect(list.map((e) => [e.kind, e.name, !!e.shared])).toEqual([['folder', 'Archive', false], ['folder', 'Zion', true], ['file', 'Grace.fidelia', false]]);
+  });
+  it('creates folders and explains name clashes', async () => {
+    expect(await createDropboxFolder('/Church', ' Books ')).toBe('/Church/Books');
+    await expect(createDropboxFolder('', 'Taken')).rejects.toThrow('already something named');
+    await expect(createDropboxFolder('', '')).rejects.toThrow('Type a folder name');
   });
 });

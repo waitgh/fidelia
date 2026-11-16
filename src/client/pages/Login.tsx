@@ -11,7 +11,8 @@ import type { StorageAdapter } from '../storage/types';
 import { seedDemo } from '../data/seed';
 import { getRecent, setRecent, type RecentChurch } from '../storage/recent';
 import { GoogleDriveAdapter } from '../storage/googleDrive';
-import { DropboxAdapter, dropboxAppKey, hasDropboxSession, startDropboxSignIn, completeDropboxSignIn } from '../storage/dropbox';
+import { DropboxAdapter, dropboxAppKey, hasDropboxSession, startDropboxSignIn, completeDropboxSignIn, joinPath, parentOf } from '../storage/dropbox';
+import { DropboxBrowser } from '../components/DropboxBrowser';
 import { getGoogleToken, googleClientId, startGoogleSignIn } from '../storage/googleAuth';
 import { openDrivePicker, pickerConfigured, takePickResult } from '../storage/drivePicker';
 
@@ -166,12 +167,14 @@ export function Login() {
   const [driveFileName, setDriveFileName] = useState('Church.fidelia');
   const [dropboxPath, setDropboxPath] = useState('/Fidelia/Church.fidelia');
   const [dropboxManual, setDropboxManual] = useState('');
+  /** Which in-app Dropbox browser is open: choosing a folder for a new church, or finding a church file. */
+  const [browse, setBrowse] = useState<null | 'create' | 'signin'>(null);
   /** Folder chosen in the Google Picker; null = top of My Drive. */
   const [pickedFolder, setPickedFolder] = useState<Folder | null>(null);
   const canPick = driveConfigured && pickerConfigured();
 
   const forgetRecent = () => { void setRecent(null); setRecentState(null); };
-  const go = (s: Step) => { a.setError(''); setPassword(''); setPassword2(''); setStep(s); };
+  const go = (s: Step) => { a.setError(''); setPassword(''); setPassword2(''); setBrowse(null); setStep(s); };
 
   /** Opens a Drive church file after checking it still exists (it may have been deleted in Drive). */
   const openDriveFile = (f: DriveFile) => a.run(async () => {
@@ -289,7 +292,10 @@ export function Login() {
       void a.run(async () => {
         if (!(await completeDropboxSignIn())) return;
         const p = resumeCreate();
-        if (p?.where === 'dropbox') go(dropboxCreateStep(p.dropboxPath));
+        const browseAfter = sessionStorage.getItem('fidelia.dropboxBrowse');
+        sessionStorage.removeItem('fidelia.dropboxBrowse');
+        if (p?.where === 'dropbox' && browseAfter === 'create') { go({ s: 'createWhere' }); setBrowse('create'); } // after go(), which closes it
+        else if (p?.where === 'dropbox') go(dropboxCreateStep(p.dropboxPath));
         else await openDropbox();
       });
       return;
@@ -427,6 +433,12 @@ export function Login() {
         )}
         <button type="button" className="btn-secondary w-full" disabled={a.busy}
           onClick={() => a.run(async () => go({ s: 'dropbox', files: await DropboxAdapter.list() }))}>Look again</button>
+        {browse === 'signin' ? (
+          <DropboxBrowser mode="file" onCancel={() => setBrowse(null)}
+            onPick={(path) => { setBrowse(null); go({ s: 'unlock', adapter: new DropboxAdapter(path) }); }} />
+        ) : (
+          <button type="button" className="btn-secondary w-full" onClick={() => setBrowse('signin')}><FolderOpen className="h-4 w-4" /> Browse my Dropbox</button>
+        )}
         <details className="text-sm">
           <summary className="cursor-pointer text-gray-600">Know where the file is?</summary>
           <form className="mt-2 flex gap-2" onSubmit={(e) => {
@@ -574,6 +586,7 @@ export function Login() {
   }
 
   if (step.s === 'createWhere') {
+    const dropboxFileName = dropboxPath.slice(dropboxPath.lastIndexOf('/') + 1);
     const next = () => a.run(async () => {
       if (!where) throw new Error('Choose where to keep your church’s data');
       const pending: PendingCreate = { churchName, displayName, username, where, driveFolder, driveFileName, dropboxPath, pickedFolder };
@@ -582,6 +595,7 @@ export function Login() {
         if (!getGoogleToken()) { sessionStorage.setItem(PENDING_CREATE, JSON.stringify(pending)); startGoogleSignIn('/'); return; }
         go(driveCreateStep(driveFolderChoice({ driveFolder, pickedFolder }), driveFileName));
       } else if (where === 'dropbox') {
+        if (!dropboxFileName.trim().replace(/\.fidelia$/i, '')) throw new Error('Enter a file name');
         if (!hasDropboxSession()) {
           sessionStorage.setItem(PENDING_CREATE, JSON.stringify(pending));
           sessionStorage.setItem('fidelia.resume', 'dropbox');
@@ -629,9 +643,29 @@ export function Login() {
         )}
         {dropboxConfigured && (
           <Option icon={<Cloud className="h-5 w-5" />} title="Dropbox" text="Recommended. Works in any browser, on any computer and iPhone. A free Dropbox account is enough." selected={where === 'dropbox'} onClick={() => setWhere('dropbox')}>
-            <label className="block"><span className="text-gray-600">File location</span>
-              <input className="input py-1" value={dropboxPath} onChange={(e) => setDropboxPath(e.target.value)} />
+            {browse === 'create' ? (
+              <DropboxBrowser mode="folder" start={parentOf(dropboxPath)} onCancel={() => setBrowse(null)}
+                onPick={(folder) => { setDropboxPath(joinPath(folder, dropboxFileName || 'Church.fidelia')); setBrowse(null); }} />
+            ) : (
+              <div className="space-y-1">
+                <p>Folder: <b>{parentOf(dropboxPath) || 'Top of Dropbox'}</b></p>
+                <button type="button" className="btn-secondary w-full" disabled={a.busy} onClick={() => {
+                  if (hasDropboxSession()) { setBrowse('create'); return; }
+                  sessionStorage.setItem(PENDING_CREATE, JSON.stringify({ churchName, displayName, username, where: 'dropbox', driveFolder, driveFileName, dropboxPath, pickedFolder } satisfies PendingCreate));
+                  sessionStorage.setItem('fidelia.resume', 'dropbox');
+                  sessionStorage.setItem('fidelia.dropboxBrowse', 'create');
+                  void a.run(startDropboxSignIn);
+                }}><FolderOpen className="h-4 w-4" /> {hasDropboxSession() ? 'Choose or create a folder' : 'Sign in to Dropbox and choose a folder'}</button>
+              </div>
+            )}
+            <label className="flex items-center gap-2">File name
+              <input className="input py-1 flex-1 min-w-0" value={dropboxFileName}
+                onChange={(e) => setDropboxPath(joinPath(parentOf(dropboxPath), e.target.value.replace(/\//g, '')))} />
             </label>
+            <details>
+              <summary className="cursor-pointer text-xs text-gray-500">Type the full location instead</summary>
+              <input className="input py-1 mt-1" value={dropboxPath} onChange={(e) => setDropboxPath(e.target.value)} />
+            </details>
             <p className="text-xs text-gray-500">Keep the church file in its own folder. To add other treasurers later, you share that folder with them in Dropbox. You can move or rename it later; others just choose it again.</p>
           </Option>
         )}

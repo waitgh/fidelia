@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-15: **In-app Dropbox browser** (`components/DropboxBrowser.tsx`): our own page calling the Dropbox API, so it works in every browser. Create account → Dropbox → "Choose or create a folder" (browse, New folder, Use this folder; file name separate; typing a full path is still available). Sign in → Dropbox → "Browse my Dropbox" to pick a church file. Shared folders show a people icon. Warns when a chosen folder already holds a church file. Helpers `listDropboxFolder`, `createDropboxFolder`, `joinPath`, `parentOf`, `folderNameProblem` with tests. Verified on localhost with the author's Dropbox (listing, new folder, choose); the temporary folder was removed.
+
 - 2026-11-15: Dropbox app "Fidelia Ledger" created (key `0gg3b3e9dgqgne6`, development status, additional users enabled: up to 500 accounts before production). Key set in `.env.local` and Cloudflare (Production + Preview). Verified on localhost: create church in Dropbox (answers survive the Dropbox redirect), invite code with the folder-specific steps, sign out, sign back in through the remembered church; no console errors. Test church left at `/Fidelia Test/Church.fidelia` in the author's Dropbox for a two-account test.
 
 - 2026-11-15: **Dropbox is the default storage; Google is hidden** (`VITE_ENABLE_GOOGLE=1` brings back Drive storage, the picker and Gmail sending). Why: Google's picker fails in Safari/iPhone/Firefox, and it is the only way a second treasurer reaches a shared Drive file. Dropbox shared folders work in every browser. Dropbox sign-in now checks a remembered church is still at its path (otherwise lists files again), has "Look again" and "Know where the file is?" (type a path), explains accepting Dropbox's share invitation, and Members → Invite names the exact folder to share. Tests in dropbox.test.ts.
@@ -83,7 +85,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Next
 
-1. **Author to test:** share `/Fidelia Test` with a second Dropbox account, then join with an invite code from Safari/iPhone.
+1. **Author to test:** create a church in a Dropbox folder, share that folder with a second Dropbox account, then join with an invite code from Safari/iPhone.
 1. **Author to test:** the full invite flow with two Google accounts (create invite → sign out → join with the code), and the folder chooser showing church files.
 2. **Author's Drive clean-up:** `Fidelia/` has two `church.fidelia`; the newer one (created 23:06 UTC, 4.7 KB) is the accidental duplicate.
 3. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).

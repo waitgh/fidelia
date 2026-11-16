@@ -109,6 +109,51 @@ async function upload(path: string, bytes: Uint8Array, mode: unknown): Promise<a
   return res.json();
 }
 
+/** An entry in the in-app Dropbox browser. Only folders and church files are returned. */
+export interface DropboxEntry { kind: 'folder' | 'file'; name: string; path: string; shared?: boolean }
+
+/** "/a/b" + "c" -> "/a/b/c"; the root is "". */
+export const joinPath = (parent: string, name: string) => `${parent === '/' ? '' : parent}/${name}`;
+/** "/a/b/c.fidelia" -> "/a/b"; "/c.fidelia" -> "" (the root). */
+export const parentOf = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf('/')));
+/** Why a folder name can't be used, or null if it's fine. */
+export function folderNameProblem(name: string): string | null {
+  const n = name.trim();
+  if (!n) return 'Type a folder name.';
+  if (/[\\/:*?"<>|]/.test(n)) return 'A folder name can’t contain / \\ : * ? " < > |';
+  if (n === '.' || n === '..') return 'Choose a different name.';
+  if (n.length > 255) return 'That name is too long.';
+  return null;
+}
+
+/** Folders and *.fidelia files directly inside `path` ("" = top of Dropbox), folders first. */
+export async function listDropboxFolder(path: string): Promise<DropboxEntry[]> {
+  const out: DropboxEntry[] = [];
+  let r = await rpc('/files/list_folder', { path, include_mounted_folders: true, limit: 2000 });
+  for (;;) {
+    for (const e of r.entries ?? []) {
+      if (e['.tag'] === 'folder') out.push({ kind: 'folder', name: e.name, path: e.path_display, shared: !!(e.sharing_info || e.shared_folder_id) });
+      else if (e['.tag'] === 'file' && /\.fidelia$/i.test(e.name)) out.push({ kind: 'file', name: e.name, path: e.path_display });
+    }
+    if (!r.has_more) break;
+    r = await rpc('/files/list_folder/continue', { cursor: r.cursor });
+  }
+  return out.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'folder' ? -1 : 1));
+}
+
+/** Creates `name` inside `parent` and returns its path. */
+export async function createDropboxFolder(parent: string, name: string): Promise<string> {
+  const problem = folderNameProblem(name);
+  if (problem) throw new Error(problem);
+  try {
+    const r = await rpc('/files/create_folder_v2', { path: joinPath(parent, name.trim()), autorename: false });
+    return r.metadata.path_display;
+  } catch (e) {
+    if ((e as { status?: number }).status === 409) throw new Error(`There is already something named “${name.trim()}” here.`);
+    throw e;
+  }
+}
+
 export class DropboxAdapter implements StorageAdapter, LockStore {
   readonly kind = 'dropbox' as const;
   private rev: string | null = null;
