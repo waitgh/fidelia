@@ -1,5 +1,6 @@
-// Small IndexedDB store: the last church location (file handle / cloud file id) and
-// any not-yet-uploaded save. Never plaintext church data or keys.
+// Small IndexedDB store: the last church location (file handle / cloud file id),
+// any not-yet-uploaded save, and the non-extractable per-tab keys used to stay signed in
+// across a refresh (church/resume.ts). Never plaintext church data or raw keys.
 const DB = 'fidelia';
 const STORE = 'recent';
 
@@ -34,6 +35,15 @@ async function kvGet<T>(key: string): Promise<T | null> {
 
 async function kvSet(key: string, v: unknown) {
   try { await tx<unknown>('readwrite', (s) => (v == null ? s.delete(key) : s.put(v, key)) as IDBRequest<unknown>); } catch { /* storage may be blocked */ }
+}
+
+export const kvGetAny = <T>(key: string) => kvGet<T>(key);
+export const kvSetAny = (key: string, v: unknown) => kvSet(key, v);
+export async function kvKeys(prefix: string): Promise<string[]> {
+  try {
+    const keys = await tx('readonly', (s) => s.getAllKeys());
+    return keys.map(String).filter((k) => k.startsWith(prefix));
+  } catch { return []; }
 }
 
 export const getRecent = () => kvGet<RecentChurch>('last');

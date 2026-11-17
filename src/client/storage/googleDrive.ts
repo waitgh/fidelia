@@ -32,7 +32,7 @@ export class GoogleDriveAdapter implements StorageAdapter, LockStore {
   /** Drive's head revision of the file when we last loaded/saved it; used to detect other writers. */
   private knownVersion: string | null = null;
 
-  constructor(public fileId: string, private name: string, private getToken: GetToken) {}
+  constructor(public fileId: string, public name: string, private getToken: GetToken) {}
 
   describe() { return `Google Drive: ${this.name}`; }
 

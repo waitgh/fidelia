@@ -171,6 +171,25 @@ export class Church {
   static async unlock(adapter: StorageAdapter, username: string, password: string): Promise<Church> {
     const file = await Church.loadFile(adapter);
     const unlocked = await E.unlockWithPassword(E.readHeader(file), username, password);
+    return Church.openAs(adapter, unlocked, file, username);
+  }
+
+  /**
+   * Re-opens the church after a page refresh with a data key kept for this tab (see resume.ts),
+   * without the password. Refused if the member was removed or deactivated in the meantime.
+   */
+  static async resume(adapter: StorageAdapter, dataKey: Uint8Array, username: string): Promise<Church> {
+    const file = await Church.loadFile(adapter);
+    const header = E.readHeader(file);
+    const hint = await E.usernameHint(header.churchId, username);
+    if (!header.keyslots.some((s) => s.kind === 'password' && s.hint === hint)) throw new E.WrongPasswordError();
+    return Church.openAs(adapter, { header, dataKey: dataKey.slice() }, file, username);
+  }
+
+  /** Copy of the data key, for keeping this tab signed in across a refresh. */
+  dataKeyForResume(): Uint8Array { return this.unlocked.dataKey.slice(); }
+
+  private static async openAs(adapter: StorageAdapter, unlocked: E.Unlocked, file: Uint8Array, username: string): Promise<Church> {
     const opened = await openDatabase(await E.decryptFile(unlocked, file));
     const row = opened.db.select().from(users).where(eq(users.username, username.trim())).get()
       ?? opened.db.select().from(users).all().find((u) => u.username.toLowerCase() === username.trim().toLowerCase());

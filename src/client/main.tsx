@@ -5,10 +5,18 @@ import { AuthProvider } from './lib/auth.js';
 import { App } from './App.js';
 import './index.css';
 import { setPendingStore } from './church/church';
-import { getPendingSave, setPendingSave } from './storage/recent';
+import { getPendingSave, setPendingSave, kvGetAny, kvSetAny, kvKeys } from './storage/recent';
+import { setResumeStores, SESSION_RECORD_KEY } from './church/resume';
 import { completeGoogleSignIn } from './storage/googleAuth';
 
 setPendingStore({ get: getPendingSave, set: setPendingSave });
+setResumeStores({
+  getRecord: () => sessionStorage.getItem(SESSION_RECORD_KEY),
+  setRecord: (v) => (v === null ? sessionStorage.removeItem(SESSION_RECORD_KEY) : sessionStorage.setItem(SESSION_RECORD_KEY, v)),
+  getKey: (id) => kvGetAny(id),
+  setKey: (id, e) => kvSetAny(id, e),
+  keyIds: () => kvKeys('session-key:'),
+});
 
 // Returning from Google sign-in: store the token, then continue the Drive flow.
 let googleError = '';

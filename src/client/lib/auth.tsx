@@ -6,7 +6,10 @@ import { onDirty, setReadOnlyCheck, setSession, setUserName } from '../data/sess
 import { AuthExpiredError, GoogleDriveAdapter } from '../storage/googleDrive';
 import { startGoogleSignIn } from '../storage/googleAuth';
 import { setMailer } from '../mail/types';
-import { DropboxAdapter, startDropboxSignIn } from '../storage/dropbox';
+import { DropboxAdapter, hasDropboxSession, startDropboxSignIn } from '../storage/dropbox';
+import { getGoogleToken } from '../storage/googleAuth';
+import { LocalFileAdapter } from '../storage/localFile';
+import { forgetSession, hasResumableSession, rememberSession, resumeSession, touchSession, type AdapterFor } from '../church/resume';
 
 export interface AuthUser {
   id: number;
@@ -32,6 +35,15 @@ const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const IDLE_WARNING_MS = 60 * 1000;
 const IDLE_EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
 
+/** Rebuilds the storage adapter for a refreshed tab, if it can be reached without a prompt or redirect. */
+const adapterFor: AdapterFor = async ({ kind, ref, name, handle }) => {
+  if (kind === 'dropbox') return ref && hasDropboxSession() ? new DropboxAdapter(ref) : null;
+  if (kind === 'google-drive') return ref && getGoogleToken() ? new GoogleDriveAdapter(ref, name ?? '', getGoogleToken) : null;
+  const h = handle as { queryPermission?: (o: { mode: string }) => Promise<string> } | undefined;
+  if (!h?.queryPermission || (await h.queryPermission({ mode: 'readwrite' })) !== 'granted') return null;
+  return new LocalFileAdapter(h as ConstructorParameters<typeof LocalFileAdapter>[0]);
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [church, setChurch] = useState<Church | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('saved');
@@ -41,13 +53,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoutRef = useRef<() => Promise<void>>(async () => {});
+  // After a refresh, reopen the church this tab had open (see church/resume.ts) instead of asking for the password.
+  const [resuming, setResuming] = useState(() => hasResumableSession());
+  const resumeStarted = useRef(false);
 
   const enter = useCallback((c: Church) => {
     setSession(c.opened);
     setReadOnlyCheck(() => c.readOnly);
     setUserName(c.user?.displayName ?? '');
     setChurch(c);
+    void rememberSession(c, IDLE_TIMEOUT_MS).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!resuming || resumeStarted.current) return;
+    resumeStarted.current = true;
+    void resumeSession(adapterFor, Church.resume)
+      .then((c) => { if (c) enter(c); })
+      .catch(() => {})
+      .finally(() => setResuming(false));
+  }, [resuming, enter]);
 
   // Autosave wiring: data writes → church.markDirty; save on hide; warn on unload.
   useEffect(() => {
@@ -93,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!window.confirm(`Your latest changes could not be saved: ${(e as Error).message}\n\nSign out anyway and lose them?`)) return;
     }
     church.close();
+    await forgetSession();
     setMailer(null);
     setSession(null);
     setChurch(null);
@@ -108,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   const resetIdle = useCallback(() => {
     clearIdle();
+    touchSession(IDLE_TIMEOUT_MS);
     warningTimer.current = setTimeout(() => setIdleWarning(true), IDLE_TIMEOUT_MS - IDLE_WARNING_MS);
     idleTimer.current = setTimeout(() => void logoutRef.current(), IDLE_TIMEOUT_MS);
   }, [clearIdle]);
@@ -123,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     : null;
 
   return (
-    <AuthContext.Provider value={{ user, church, saveState, loading: false, loggingOut, enter, logout }}>
+    <AuthContext.Provider value={{ user, church, saveState, loading: resuming, loggingOut, enter, logout }}>
       {children}
       {idleWarning && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-amber-950/95 border-amber-700 text-amber-200">
@@ -147,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               sessionStorage.setItem('fidelia.driveOpen', JSON.stringify({ id: church.adapter.fileId, name: church.adapter.describe() }));
             }
             const adapter = church.adapter;
-            church.close(); setSession(null);
+            church.close(); setSession(null); void forgetSession();
             if (adapter instanceof DropboxAdapter) {
               sessionStorage.setItem('fidelia.dropboxOpen', adapter.path);
               sessionStorage.setItem('fidelia.resume', 'dropbox');

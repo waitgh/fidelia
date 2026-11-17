@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-17: **Refreshing no longer asks for the password** (`church/resume.ts`). After unlocking, the data key is encrypted with a random non-extractable AES key kept in IndexedDB; the encrypted key, expiry and file location go in this tab's sessionStorage. Neither half works alone. The expiry slides with activity and matches the 15-minute idle sign-out; sign-out (manual or idle) deletes both, closing the tab drops the sessionStorage half, and orphaned IndexedDB keys are swept after a day. Resume re-checks that the member still has a password slot and is active. Not used for the demo; local files resume only if Chrome still grants file permission without a prompt. Not checked in a real browser yet (the automated Chrome couldn't reach the dev server).
+
 - 2026-11-17: **Donors → Import CSV.** Header names are matched loosely (`first_name`, `First Name`, `firstName` all work). One transaction; skips rows with no name, envelope numbers already in use, and exact duplicates (name + email + phone + address), so re-importing a file adds nothing. Used to bring the first church's donors over from the old app (`sqlite3 -header -csv` on `bookkeeping.db`).
 
 - 2026-11-15: **User guide PDF** for non-technical treasurers: `docs/user-guide/Fidelia-User-Guide.pdf` (9 pages: setup with Dropbox, inviting treasurers, signing in, recording a batch, donors/pledges/funds, reports, good to know, troubleshooting). Rebuild with `docs/user-guide/make_guide.py` (screenshots from the demo). Also fixed: the demo showed both the default funds and its own sample funds; it now reuses General/Building/Mission and adds Lunch.
