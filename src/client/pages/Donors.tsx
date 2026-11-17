@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, type ChangeEvent } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { Plus, Search, Mail, Phone, X } from 'lucide-react';
+import { Plus, Search, Mail, Phone, X, Upload } from 'lucide-react';
+import { parseCsvObjects } from '../lib/csv.js';
 import { SortableHeader, toggleSort, type SortState, type SortDirection } from '../components/SortableHeader.js';
 
 type DonorSortColumn = 'envelope' | 'name' | 'congregation';
@@ -26,6 +27,7 @@ export function Donors() {
   const [donors, setDonors] = useState<Donor[]>([]);
   const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState('');
+  const [importResult, setImportResult] = useState<{ created: number; skipped: { row: number; name: string; reason: string }[] } | null>(null);
   const navigate = useNavigate();
   const pendingScrollRestore = useRef(false);
 
@@ -130,6 +132,22 @@ export function Donors() {
     return () => window.removeEventListener('scroll', saveScroll);
   }, []);
 
+  const handleImport = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setError('');
+    setImportResult(null);
+    try {
+      const rows = parseCsvObjects(await file.text());
+      if (rows.length === 0) throw new Error('That file has no donor rows. It needs a header row, then one donor per row.');
+      setImportResult(await api.donors.importCsv(rows));
+      refreshDonors();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
   const handleRowClick = (id: number) => {
     rememberScroll();
     navigate(`/donors/${id}/edit`);
@@ -139,10 +157,17 @@ export function Donors() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Donors</h1>
-        <Link to="/donors/new" className="btn-primary">
-          <Plus className="h-4 w-4" />
-          Add Donor
-        </Link>
+        <div className="flex items-center gap-2">
+          <label className="btn-secondary cursor-pointer" title="Add donors from a CSV file with a header row (First Name, Last Name, Email, Envelope Number, ...)">
+            <Upload className="h-4 w-4" />
+            Import CSV
+            <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleImport} />
+          </label>
+          <Link to="/donors/new" className="btn-primary">
+            <Plus className="h-4 w-4" />
+            Add Donor
+          </Link>
+        </div>
       </div>
 
       <div className="mb-6 flex items-center gap-4">
@@ -174,6 +199,19 @@ export function Donors() {
       </div>
 
       {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
+      {importResult && (
+        <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+          <div className="flex items-start justify-between gap-4">
+            <span>Imported {importResult.created} donor{importResult.created === 1 ? '' : 's'}.{importResult.skipped.length > 0 && ` Skipped ${importResult.skipped.length}:`}</span>
+            <button onClick={() => setImportResult(null)} className="text-green-700 hover:text-green-900"><X className="h-4 w-4" /></button>
+          </div>
+          {importResult.skipped.length > 0 && (
+            <ul className="mt-2 max-h-40 list-disc overflow-y-auto pl-5 text-gray-700">
+              {importResult.skipped.map((s) => <li key={s.row}>Row {s.row}{s.name && ` (${s.name})`}: {s.reason}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="card">
         <div className="table-container">

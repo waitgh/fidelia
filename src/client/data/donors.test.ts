@@ -41,3 +41,26 @@ describe('donors', () => {
     expect(() => D.getDonor(db, a.id)).toThrow('not found');
   });
 });
+
+describe('importDonors', () => {
+  it('maps common header spellings, skips bad rows and duplicates, and is idempotent', () => {
+    D.createDonor(db, { firstName: 'Old', lastName: 'Timer', envelopeNumber: '1' });
+    const rows: Record<string, string>[] = [
+      { 'First Name': 'Amy', last_name: 'Wang', chinese_name: '王爱美', envelope_number: '2', is_active: '1', id: '99' },
+      { firstName: 'Bob', lastName: 'Li', isActive: '0', email: 'bob@x.org' },
+      { 'First Name': 'Dup', last_name: 'Env', envelope_number: '1' },
+      { 'First Name': '', last_name: 'NoFirst' },
+    ];
+    const r = D.importDonors(db, rows);
+    expect(r.created).toBe(2);
+    expect(r.skipped.map((s) => s.row)).toEqual([4, 5]);
+    const all = D.listDonors(db, undefined, true);
+    expect(all).toHaveLength(3);
+    const amy = all.find((d) => d.firstName === 'Amy')!;
+    expect(amy).toMatchObject({ chineseName: '王爱美', envelopeNumber: '2', isActive: true });
+    expect(amy.id).not.toBe(99);
+    expect(all.find((d) => d.firstName === 'Bob')!.isActive).toBe(false);
+    expect(D.importDonors(db, rows).created).toBe(0);
+    expect(D.listDonors(db, undefined, true)).toHaveLength(3);
+  });
+});

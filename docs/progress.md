@@ -10,6 +10,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-17: **Donors → Import CSV.** Header names are matched loosely (`first_name`, `First Name`, `firstName` all work). One transaction; skips rows with no name, envelope numbers already in use, and exact duplicates (name + email + phone + address), so re-importing a file adds nothing. Used to bring the first church's donors over from the old app (`sqlite3 -header -csv` on `bookkeeping.db`).
+
 - 2026-11-15: **User guide PDF** for non-technical treasurers: `docs/user-guide/Fidelia-User-Guide.pdf` (9 pages: setup with Dropbox, inviting treasurers, signing in, recording a batch, donors/pledges/funds, reports, good to know, troubleshooting). Rebuild with `docs/user-guide/make_guide.py` (screenshots from the demo). Also fixed: the demo showed both the default funds and its own sample funds; it now reuses General/Building/Mission and adds Lunch.
 
 - 2026-11-15: **In-app Dropbox browser** (`components/DropboxBrowser.tsx`): our own page calling the Dropbox API, so it works in every browser. Create account → Dropbox → "Choose or create a folder" (browse, New folder, Use this folder; file name separate; typing a full path is still available). Sign in → Dropbox → "Browse my Dropbox" to pick a church file. Shared folders show a people icon. Warns when a chosen folder already holds a church file. Helpers `listDropboxFolder`, `createDropboxFolder`, `joinPath`, `parentOf`, `folderNameProblem` with tests. Verified on localhost with the author's Dropbox (listing, new folder, choose); the temporary folder was removed.

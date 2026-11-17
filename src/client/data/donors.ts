@@ -105,3 +105,65 @@ export function deleteDonor(db: AppDb, id: number) {
   db.delete(donors).where(eq(donors.id, id)).run();
   return { ok: true };
 }
+
+/** CSV header names (lowercased, letters/digits only) accepted for each donor field. */
+const IMPORT_HEADERS: Record<string, (typeof EDITABLE)[number]> = {
+  firstname: 'firstName', first: 'firstName',
+  lastname: 'lastName', last: 'lastName', surname: 'lastName',
+  spousename: 'spouseName', spouse: 'spouseName',
+  chinesename: 'chineseName',
+  congregation: 'congregation',
+  email: 'email', emailaddress: 'email',
+  phone: 'phone', phonenumber: 'phone',
+  address: 'address', street: 'address',
+  city: 'city', state: 'state',
+  zipcode: 'zipCode', zip: 'zipCode', postalcode: 'zipCode',
+  envelopenumber: 'envelopeNumber', envelope: 'envelopeNumber', env: 'envelopeNumber',
+  notes: 'notes',
+  isactive: 'isActive', active: 'isActive',
+};
+
+const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase();
+type DupFields = 'firstName' | 'lastName' | 'email' | 'phone' | 'address';
+const dupKey = (d: { [K in DupFields]?: unknown }) =>
+  [d.firstName, d.lastName, d.email, d.phone, d.address].map((v) => norm(v as string)).join('|');
+
+export interface ImportDonorsResult {
+  created: number;
+  skipped: { row: number; name: string; reason: string }[];
+}
+
+/**
+ * Adds donors from CSV-style rows (header name -> value), all in one transaction.
+ * Skips rows without a first and last name, rows whose envelope number is already in use,
+ * and rows matching an existing donor's name, email, phone and address, so re-importing a file adds nothing.
+ */
+export function importDonors(db: AppDb, rows: Record<string, string>[]): ImportDonorsResult {
+  const result: ImportDonorsResult = { created: 0, skipped: [] };
+  const existing = db.select().from(donors).all();
+  const envelopes = new Set(existing.map((d) => norm(d.envelopeNumber)).filter(Boolean));
+  const keys = new Set(existing.map(dupKey));
+  db.transaction((tx) => {
+    rows.forEach((raw, i) => {
+      const values: Record<string, unknown> = {};
+      for (const [header, value] of Object.entries(raw)) {
+        const field = IMPORT_HEADERS[header.toLowerCase().replace(/[^a-z0-9]/g, '')];
+        const v = value.trim();
+        if (!field || v === '') continue;
+        values[field] = field === 'isActive' ? !/^(0|false|no|n|inactive)$/i.test(v) : v;
+      }
+      const name = `${values.firstName ?? ''} ${values.lastName ?? ''}`.trim();
+      const skip = (reason: string) => result.skipped.push({ row: i + 2, name, reason });
+      if (!values.firstName || !values.lastName) return skip('Missing first or last name');
+      const env = norm(values.envelopeNumber as string);
+      if (env && envelopes.has(env)) return skip(`Envelope #${values.envelopeNumber} is already in use`);
+      const key = dupKey(values);
+      if (keys.has(key)) return skip('Already in the donor list');
+      tx.insert(donors).values(pick(values) as typeof donors.$inferInsert).run();
+      if (env) envelopes.add(env);
+      keys.add(key);
+      result.created++;
+    });
+  });
+  return result;
+}

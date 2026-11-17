@@ -46,6 +46,8 @@ export const api = {
     create: (data: any) => write((db) => donorsData.createDonor(db, data), 'create_donor', 'donor', undefined, (r) => `${r.firstName} ${r.lastName}`),
     update: (id: number, data: any) => write((db) => donorsData.updateDonor(db, id, data), 'update_donor', 'donor', id, (r) => `${r.firstName} ${r.lastName}`),
     delete: (id: number) => write((db) => donorsData.deleteDonor(db, id), 'delete_donor', 'donor', id),
+    importCsv: (rows: Record<string, string>[]) =>
+      write((db) => donorsData.importDonors(db, rows), 'import_donors', 'donor', undefined, (r) => `${r.created} added, ${r.skipped.length} skipped`),
     checkEnvelope: (envelopeNumber: string, excludeId?: number) =>
       read((db) => donorsData.isEnvelopeTaken(db, envelopeNumber, excludeId)),
   },
