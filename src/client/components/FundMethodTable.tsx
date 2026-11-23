@@ -3,6 +3,13 @@ import { buildFundMethodTable, type FundMethodCell, type FundMethodSums } from '
 import { formatCurrency, paymentMethodLabel } from '../lib/formatters.js';
 import { useSettings } from '../lib/settings.js';
 
+const plain = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Own styles rather than .table-container's, whose `th { text-left }` outranks text-right.
+const TH = 'px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wider align-bottom';
+const NUM = 'px-3 py-2 text-right whitespace-nowrap tabular-nums w-px min-w-[6.5rem]';
+const TOTAL_COL = 'bg-gray-50 border-l border-gray-200';
+
 /**
  * Funds down the side, payment methods across the top, with a subtotal for every fund and every method
  * (matches a counting sheet that lists cash and check separately). Methods with no gifts are left out.
@@ -12,62 +19,63 @@ export function FundMethodTable({ cells, showFees = true }: { cells: FundMethodC
   const t = useMemo(() => buildFundMethodTable(cells, offeringMethodOptions.map((m) => m.value)), [cells, offeringMethodOptions]);
   const label = (m: string) => offeringMethodOptions.find((o) => o.value === m)?.label ?? paymentMethodLabel(m);
   if (!t.rows.length) return <p className="px-6 py-4 text-sm text-gray-500">No offerings.</p>;
+
   const hasFees = showFees && t.totals.total.fees > 0;
-  const money = (s: FundMethodSums | undefined) =>
-    s && s.count ? formatCurrency(s.amount) : <span className="text-gray-300">—</span>;
-  const cols = [...t.methods.map((m) => ({ key: m, sums: (r: Record<string, FundMethodSums>) => r[m] })), null];
+  const cols: { key: string; label: string; sums: FundMethodSums; total?: boolean }[] = [
+    ...t.methods.map((m) => ({ key: m, label: label(m), sums: t.totals.byMethod[m]! })),
+    { key: '__total', label: 'Total', sums: t.totals.total, total: true },
+  ];
+  const gifts = (n: number) => `${n} gift${n === 1 ? '' : 's'}`;
 
   return (
-    <div className="table-container">
-      <table>
-        <thead>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm text-gray-700">
+        <thead className="border-b border-gray-200">
           <tr>
-            <th>Fund</th>
-            {t.methods.map((m) => <th key={m} className="text-right whitespace-nowrap">{label(m)}</th>)}
-            <th className="text-right">Total</th>
+            <th className={`${TH} text-left pl-6`}>Fund</th>
+            {cols.map((c) => (
+              <th key={c.key} className={`${TH} text-right whitespace-nowrap ${c.total ? TOTAL_COL : ''} ${c.total ? 'pr-6' : ''}`}>
+                <div>{c.label}</div>
+                <div className="mt-0.5 font-normal normal-case tracking-normal text-gray-400">{gifts(c.sums.count)}</div>
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {t.rows.map((r) => (
             <tr key={r.categoryName}>
-              <td className="font-medium">{r.categoryName}</td>
-              {t.methods.map((m) => <td key={m} className="text-right font-mono whitespace-nowrap">{money(r.byMethod[m])}</td>)}
-              <td className="text-right font-mono font-semibold whitespace-nowrap">{formatCurrency(r.total.amount)}</td>
+              <td className="pl-6 pr-3 py-2 font-medium text-gray-900">{r.categoryName}</td>
+              {t.methods.map((m) => (
+                <td key={m} className={NUM}>{r.byMethod[m]?.count ? plain.format(r.byMethod[m]!.amount) : ''}</td>
+              ))}
+              <td className={`${NUM} ${TOTAL_COL} pr-6 font-semibold text-gray-900`}>{plain.format(r.total.amount)}</td>
             </tr>
           ))}
         </tbody>
-        <tfoot className="border-t-2 border-gray-300">
-          <tr className="font-semibold">
-            <td>Total</td>
+        <tfoot>
+          <tr className="border-t-2 border-gray-300 font-semibold text-gray-900">
+            <td className="pl-6 pr-3 py-2.5">Total</td>
             {cols.map((c) => (
-              <td key={c?.key ?? 'total'} className="text-right font-mono whitespace-nowrap">
-                {formatCurrency((c ? c.sums(t.totals.byMethod) : t.totals.total)?.amount ?? 0)}
-              </td>
-            ))}
-          </tr>
-          <tr className="text-xs text-gray-500">
-            <td>Number of gifts</td>
-            {cols.map((c) => (
-              <td key={c?.key ?? 'total'} className="text-right whitespace-nowrap">
-                {(c ? c.sums(t.totals.byMethod) : t.totals.total)?.count ?? 0}
-              </td>
+              <td key={c.key} className={`${NUM} py-2.5 ${c.total ? `${TOTAL_COL} pr-6` : ''}`}>{formatCurrency(c.sums.amount)}</td>
             ))}
           </tr>
           {hasFees && (
             <>
-              <tr className="text-sm">
-                <td className="text-gray-500">Fees</td>
-                {cols.map((c) => {
-                  const fees = (c ? c.sums(t.totals.byMethod) : t.totals.total)?.fees ?? 0;
-                  return <td key={c?.key ?? 'total'} className="text-right font-mono text-red-600 whitespace-nowrap">{fees ? `−${formatCurrency(fees)}` : ''}</td>;
-                })}
+              <tr className="text-xs text-gray-500">
+                <td className="pl-6 pr-3 py-1">Fees</td>
+                {cols.map((c) => (
+                  <td key={c.key} className={`${NUM} py-1 text-red-600 ${c.total ? `${TOTAL_COL} pr-6` : ''}`}>
+                    {c.sums.fees ? `−${plain.format(c.sums.fees)}` : ''}
+                  </td>
+                ))}
               </tr>
-              <tr className="text-sm font-medium">
-                <td>Net</td>
-                {cols.map((c) => {
-                  const s = c ? c.sums(t.totals.byMethod) : t.totals.total;
-                  return <td key={c?.key ?? 'total'} className="text-right font-mono whitespace-nowrap">{s ? formatCurrency(s.amount - s.fees) : ''}</td>;
-                })}
+              <tr className="text-xs text-gray-600 font-medium">
+                <td className="pl-6 pr-3 pt-1 pb-2.5">Net</td>
+                {cols.map((c) => (
+                  <td key={c.key} className={`${NUM} pt-1 pb-2.5 ${c.total ? `${TOTAL_COL} pr-6` : ''}`}>
+                    {formatCurrency(c.sums.amount - c.sums.fees)}
+                  </td>
+                ))}
               </tr>
             </>
           )}
