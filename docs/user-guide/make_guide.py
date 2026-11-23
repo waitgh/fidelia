@@ -173,14 +173,18 @@ story += [PageBreak(), P('3. Adding other treasurers', h1),
               f'In Fidelia, open {b("Members")} and click {b("Invite someone")}.',
               f'Choose what they will be: {b("Admin")} (everything), {b("Bookkeeper")} (offerings, donors, pledges, reports) '
               f'or {b("Viewer")} (look only). Click {b("Create invite code")}.',
-              f'In Dropbox, {b("share the church’s folder")} with the person’s email address. The screen tells you which '
-              f'folder. Leave {b("Can edit")} on, even for viewers. Fidelia itself keeps viewers read-only.',
+              f'In Dropbox, {b("share the church’s folder")} (the whole folder, not just the file) with the person’s email '
+              f'address. The screen tells you which folder. Leave {b("Can edit")} on, even for viewers. Fidelia itself '
+              'keeps viewers read-only.',
               'Send them the invite code by text or email. It works once and expires after 14 days.',
               'Sign out of Fidelia when you have sent it, so they can finish joining.',
           ]),
           P('What the new person does', h2),
           steps([
-              f'Open the invitation email from Dropbox and click {b("Open")} or {b("Add to Dropbox")}.',
+              f'{b("Join the shared folder first.")} Open the invitation email from Dropbox, click the link, and click '
+              f'{b("Join folder")} (it may say {b("Add to Dropbox")}). This puts the church folder into their own Dropbox. '
+              f'No email? Sign in at dropbox.com, open {b("Shared")}, and click {b("Join")} next to the folder. '
+              'Until they join, Fidelia can’t see the church.',
               f'Go to {b(SITE.replace("https://", ""))}, click {b("Sign in")}, then {b("Dropbox")}, and sign in to '
               'their own Dropbox.',
               f'Choose the church. If it isn’t listed yet, wait a minute and click {b("Look again")}, or use '
@@ -305,7 +309,9 @@ story += [PageBreak(), P('10. Good to know', h1),
 
 rows = [['What you see', 'What to do'],
         ['“No church file found” after signing in to Dropbox',
-         'Make sure you accepted Dropbox’s invitation email. Wait a minute, then click Look again, or use Browse my Dropbox.'],
+         'The shared folder hasn’t been joined yet. In Dropbox’s invitation email click Join folder (or at dropbox.com, '
+         'Shared → Join). Make sure you signed in to the Dropbox account the folder was shared with. Wait a minute, '
+         'then click Look again, or use Browse my Dropbox.'],
         ['“… is editing right now, so you can only view”',
          'Someone else is editing. Wait, or ask them to sign out. Fidelia switches you over by itself. If it’s your own name, '
          'close Fidelia on your other window or device, or click Edit here instead.'],

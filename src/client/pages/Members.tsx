@@ -25,7 +25,7 @@ export function Members() {
   const where = church.adapter.kind === 'google-drive'
     ? { share: 'In Google Drive, share the church file with their Google account (as Editor, or Viewer for viewers).', find: 'Sign in → Google Drive → Find it in Google Drive' }
     : church.adapter.kind === 'dropbox'
-      ? { share: `In Dropbox, share the folder ${(church.adapter as DropboxAdapter).folder} with their email address (they can use a free Dropbox account). Leave “Can edit” on, even for viewers: Fidelia itself keeps viewers read-only. They must accept Dropbox’s invitation email.`, find: 'Sign in → Dropbox' }
+      ? { share: `In Dropbox, share the folder ${(church.adapter as DropboxAdapter).folder} with their email address (they can use a free Dropbox account). Leave “Can edit” on, even for viewers: Fidelia itself keeps viewers read-only. Then they must click “Join folder” in Dropbox’s invitation email (or at dropbox.com → Shared → Join) so the folder is in their own Dropbox.`, find: 'Sign in → Dropbox' }
       : { share: 'Give them a copy of the church file, or put it somewhere you both can reach.', find: 'Sign in → A file on this computer' };
   const members = church.listMembers().filter((m) => m.isActive);
   const admins = members.filter((m) => m.role === 'admin' && m.hasPassword).length;

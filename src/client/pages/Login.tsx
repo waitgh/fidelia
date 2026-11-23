@@ -432,7 +432,7 @@ export function Login() {
         ) : (
           <div className="text-sm text-gray-600 space-y-2">
             <p>No church file found in this Dropbox yet.</p>
-            <p>If another treasurer set up the church: ask them to share the church’s folder with you in Dropbox, then open Dropbox’s invitation email and choose <b>Open</b> or <b>Add to Dropbox</b>. It can take a minute to show up here.</p>
+            <p>If another treasurer set up the church: ask them to share the church’s folder with you in Dropbox, then open Dropbox’s invitation email and click <b>Join folder</b> (or at dropbox.com, open <b>Shared</b> and click <b>Join</b>). Until you join, the church won’t show up here. It can take a minute.</p>
             <p>Otherwise, go back and create a church account.</p>
           </div>
         )}
