@@ -33,7 +33,7 @@ GOLD = colors.HexColor('#b8860b')
 SOFT = colors.HexColor('#eef0fb')
 WARN = colors.HexColor('#fff6dd')
 GREY = colors.HexColor('#5b5b6b')
-SITE = 'https://fidelia-browser.pages.dev'
+SITE = 'https://fidelia.pages.dev'
 
 body = ParagraphStyle('body', fontName='Body', fontSize=11.5, leading=16.5, textColor=INK, spaceAfter=6)
 small = ParagraphStyle('small', parent=body, fontSize=9.5, leading=13, textColor=GREY)
@@ -80,6 +80,13 @@ def shot(name, text, width=6.5 * inch):
     return KeepTogether([frame, P(text, caption)])
 
 
+def side(left, right):  # text beside a picture
+    t = Table([[left, right]], colWidths=[3.4 * inch, 3.1 * inch])
+    t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP'), ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                           ('RIGHTPADDING', (0, 0), (0, -1), 14), ('RIGHTPADDING', (1, 0), (1, -1), 0)]))
+    return t
+
+
 def on_page(c, doc):
     if doc.page == 1:
         return
@@ -111,6 +118,9 @@ def cover(c, doc):
     c.setFillColor(colors.HexColor('#fde047'))
     c.setFont('HeadB', 18)
     c.drawCentredString(letter[0] / 2, 4.2 * inch, SITE.replace('https://', ''))
+    c.setFillColor(colors.HexColor('#c9c8ee'))
+    c.setFont('Body', 10.5)
+    c.drawCentredString(letter[0] / 2, 3.8 * inch, 'New address. If you saved the old one (fidelia-browser.pages.dev), update your bookmark.')
     c.restoreState()
 
 
@@ -188,7 +198,9 @@ story += [PageBreak(), P('4. Signing in', h1),
               f'Type your {b("sign-in name")} and {b("password")}.',
           ]),
           shot('dashboard.jpg', 'The Dashboard: this month, this year, recent batches, and totals by fund'),
-          bullets([f'Fidelia signs you out after 15 minutes without activity. Click {b("Sign out")} (bottom left) when you finish, '
+          bullets([f'Treasurer for more than one church? On the sign-in screen, click {b("Different church")} to see the list '
+                   f'of church files again. {b("Use a different Dropbox account")} lets you switch to another Dropbox.',
+                   f'Fidelia signs you out after 15 minutes without activity. Click {b("Sign out")} (bottom left) when you finish, '
                    'especially on a shared computer.',
                    f'Forgot your password? Ask an admin to set a new one under {b("Members")}. If no admin can sign in, '
                    f'use {b("Forgot password? Use the recovery key")}.'])]
@@ -197,47 +209,91 @@ story += [PageBreak(), P('4. Signing in', h1),
 story += [PageBreak(), P('5. Recording a Sunday offering', h1),
           P('Each collection, for example one Sunday’s offering, goes into a <b>batch</b>. You add each gift to the batch, '
             'check the total against the money counted, then close the batch.'),
-          steps([f'Click {b("Batches")}, then {b("New Batch")}. Pick the date and add a short description.']),
-          shot('batches.jpg', 'Batches: open batches are yellow, closed ones are green'),
+          side(steps([f'Click {b("Batches")}, then {b("New Batch")}. Pick the date and add a short description.']),
+               shot('batches.jpg', 'Batches: open batches are yellow, closed ones are green', width=3.1 * inch)._content),
           steps([
               f'In the batch, click {b("Add Offering")}. Choose the {b("donor")} (start typing their name), type the '
               f'{b("amount")}, and pick the {b("fund")} (General, Building, Mercy, Mission…) and the {b("method")} '
-              '(cash, check, Zelle…). For a check, type the check number.',
+              f'(cash, check, Zelle…). For a check, type the check number. Leave {b("Designation")} blank unless the gift '
+              'is for someone specific (see section 7).',
               f'Click {b("Add Offering")} to save it, and repeat for each gift. New giver? Use the small '
               f'{b("person icon")} next to the donor box to add them quickly.',
-              'Compare the batch total with the money counted. Fix any line with the pencil icon.',
+              f'Type the {b("Attendance")} (adults and children) in the box under the total. It saves by itself.',
+              f'Compare the {b("By Fund and Method")} table with the money counted. It shows cash and checks separately for '
+              'each fund, with the number of gifts for each. Fix any line with the pencil icon.',
               f'Click {b("Close Batch")} when it matches. A closed batch can be reopened later if needed.',
           ], start=2),
-          shot('offering.jpg', 'Adding an offering to a batch'),
-          callout('<b>Zelle gifts:</b> in a batch, <b>Import</b> can read a Zelle bank statement and add the gifts for you. '
-                  'Check the donors and funds before saving.')]
+          shot('offering.jpg', 'Adding an offering to a batch. The Designation box is on the right.', width=5.2 * inch)]
+
+# 5b
+story += [PageBreak(), P('6. The batch page and the summary sheet', h1),
+          P('Every batch shows its total, the attendance, and a table of funds by payment method: each fund has its own '
+            'cash and check subtotals, and the bottom row gives the cash total, the check total and the grand total. '
+            'This is the same layout as a paper counting sheet.'),
+          shot('batch.jpg', 'A batch: totals and attendance on the left, the fund-by-method table on the right'),
+          side(P(f'Click {b("Summary Sheet")} at the top of the batch to save a one-page PDF to print or file. It has the date, '
+            'attendance, number of checks, the fund-by-method table (with missionary designations), fees and net, and '
+            '“Counted by” and “Verified by” lines to sign. It can replace a hand-written summary sheet. While the batch '
+            'is still open, the sheet is marked <i>Draft</i>.'),
+               shot('summary-sheet.jpg', 'The Summary Sheet PDF', width=2.9 * inch)._content)]
+
+story += [PageBreak(), P('7. Gifts to a specific missionary (designations)', h1),
+          P('Most Mission gifts go to the Mission fund in general. If a giver names a missionary, record it like this:'),
+          steps([
+              f'Choose the {b("Mission")} fund as usual.',
+              f'Type the missionary’s name in the {b("Designation")} box, for example <i>Smith family (Kenya)</i>. '
+              'There is nothing to set up first. The box suggests names already used, which keeps the spelling the same.',
+              'Leave the box blank for ordinary gifts.',
+          ]),
+          bullets([
+              'Designations work on any fund, not only Mission (for example a Building gift for the roof).',
+              f'In the batch list, the gift shows <i>for Smith family (Kenya)</i> under the fund. In the '
+              f'{b("By Fund and Method")} table and in Reports, the fund is broken down by name, with the rest shown as '
+              '<i>Undesignated</i>.',
+              'The designation also appears on the donor’s year-end statement.',
+              f'To add one to a gift already entered: open the batch, click {b("Reopen")} if it is closed, click the pencil '
+              f'on the gift, type the name, save, then {b("Close Batch")} again.',
+          ]),
+          P('Export and import', h2),
+          bullets([
+              f'{b("Zelle gifts:")} in an open batch, {b("Import")} can read a Zelle bank statement and add the gifts for '
+              'you. Check the donors and funds before saving.',
+              f'{b("Export")} on a batch page saves the batch as a spreadsheet file (CSV) that opens in Excel, Numbers or '
+              'Google Sheets, with a total row at the bottom.',
+              f'{b("Batches → Import CSV")} reads a file made by Export (for example from another church file, or after '
+              'fixing it in a spreadsheet) and creates the batch again. Fidelia shows a preview first: the batches, any '
+              'new donors it will add, and any problems. Nothing is saved until you click Import. If a batch looks like '
+              'one you already have, it warns you so you don’t enter it twice.',
+          ])]
 
 # 6
-story += [PageBreak(), P('6. Donors, pledges and funds', h1),
+story += [PageBreak(), P('8. Donors, pledges and funds', h1),
           bullets([
               f'{b("Donors:")} add or edit names, addresses, phone numbers and envelope numbers. Addresses are used on statements.',
               f'{b("Pledges:")} record a promise, such as $1,200 to the Building fund this year. Fidelia shows how much has been given so far.',
               f'{b("Settings:")} church name and address, the funds (categories) offerings can go to, and the wording of the donor letter. '
               'A new church starts with the funds General, Building, Mercy and Mission. Add, rename or remove them here.',
           ]),
-          P('7. Reports and year-end statements', h1),
+          P('9. Reports and year-end statements', h1),
           steps([
-              f'Click {b("Reports")}. Choose a {b("Report Type")}: {b("Summary")} (totals by fund and by payment method), '
+              f'Click {b("Reports")}. Choose a {b("Report Type")}: {b("Summary")} (totals by fund with cash and check subtotals, '
+              f'missionary designations, and average attendance), '
               f'{b("Donor Statement")} (what each person gave, for tax receipts) or {b("Trends")} (giving over time).',
               f'Choose the dates, for example January 1 to December 31, and click {b("Generate Report")}.',
               f'Click {b("Preview PDF")} to look at it, or {b("Export PDF")} to save and print it.',
           ]),
-          shot('report.jpg', 'A summary report'),
+          shot('report.jpg', 'A summary report: each fund, by payment method'),
           callout('<b>Emailing statements:</b> if your helper has turned on email sending, Donor Statement shows an '
                   '<b>Email Statements</b> button. Use a laptop for this. If sending stops partway, open it again: '
                   'it continues with the people not yet sent.')]
 
 # 8
-story += [PageBreak(), P('8. Good to know', h1),
+story += [PageBreak(), P('10. Good to know', h1),
           bullets([
               f'{b("Saving is automatic.")} The bottom-left corner shows <i>Saved</i> or <i>Saving…</i>. Wait for <i>Saved</i> before closing.',
               f'{b("One editor at a time.")} If someone else is editing, you see their name and can still look at everything. '
-              'Fidelia switches you to editing by itself when they finish.',
+              'Fidelia switches you to editing by itself when they finish. If the name is your own, you probably left '
+              f'Fidelia open in another window, tab or device: close it, or click {b("Edit here instead")}.',
               f'{b("Mistakes can be undone.")} Admins can go back to an earlier save under {b("Data & Backup → Previous versions")}.',
               f'{b("Extra backup.")} {b("Data & Backup → Download encrypted backup")} saves a locked copy you can keep elsewhere. '
               'It opens with the same passwords.',
@@ -245,13 +301,16 @@ story += [PageBreak(), P('8. Good to know', h1),
               f'{b("Don’t copy it or upload an old copy over it")}, because that can lose recent changes.',
               f'{b("Who did what:")} admins can see every change in the {b("Audit Log")}.',
           ]),
-          P('9. If something goes wrong', h1)]
+          PageBreak(), P('11. If something goes wrong', h1)]
 
 rows = [['What you see', 'What to do'],
         ['“No church file found” after signing in to Dropbox',
          'Make sure you accepted Dropbox’s invitation email. Wait a minute, then click Look again, or use Browse my Dropbox.'],
         ['“… is editing right now, so you can only view”',
-         'Someone else is editing. Wait, or ask them to sign out. Fidelia switches you over by itself.'],
+         'Someone else is editing. Wait, or ask them to sign out. Fidelia switches you over by itself. If it’s your own name, '
+         'close Fidelia on your other window or device, or click Edit here instead.'],
+        ['Settings, Donors or Members are missing from the menu',
+         'You are in view-only mode because someone (maybe you, in another window) is editing. See the line above.'],
         ['Forgot your password', 'Ask an admin to set a new one under Members.'],
         ['Every admin forgot their password', 'Use the printed recovery key: Sign in → Forgot password? Use the recovery key.'],
         ['Entered something wrong', 'Fix it with the pencil icon, or an admin can restore an earlier save under Data & Backup.'],
