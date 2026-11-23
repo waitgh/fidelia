@@ -7,11 +7,13 @@
  *  3. No logic changes
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { formatCurrency, formatDate, todayISO } from '../lib/formatters.js';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Upload, AlertTriangle } from 'lucide-react';
+import { parseCsvObjects } from '../lib/csv.js';
+import type { BatchImportPlan } from '../data/batchImport.js';
 import { useAuth } from '../lib/auth.js';
 
 const PAGE_SIZE = 20;
@@ -76,6 +78,9 @@ export function Batches() {
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('');
+  const [importRows, setImportRows] = useState<Record<string, string>[] | null>(null);
+  const [importPlan, setImportPlan] = useState<BatchImportPlan | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const loadBatches = (off = offset) => {
     api.batches.list({ limit: PAGE_SIZE, offset: off, description: filter.trim() || undefined }).then((data) => {
@@ -90,6 +95,39 @@ export function Batches() {
     const t = setTimeout(() => loadBatches(0), 250);
     return () => clearTimeout(t);
   }, [filter]);
+
+  const cancelImport = () => { setImportRows(null); setImportPlan(null); };
+
+  const handleImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setError('');
+    cancelImport();
+    try {
+      const rows = parseCsvObjects(await file.text());
+      setImportPlan(await api.batches.planImport(rows));
+      setImportRows(rows);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not read that file');
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!importRows) return;
+    setImporting(true);
+    setError('');
+    try {
+      const r = await api.batches.importCsv(importRows);
+      cancelImport();
+      if (r.batchIds.length === 1) navigate(`/batches/${r.batchIds[0]}`);
+      else loadBatches(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,15 +146,89 @@ export function Batches() {
       <div className="page-header">
         <h1 className="page-title">Batches</h1>
         {!isViewer && !showForm && (
-          <button onClick={() => setShowForm(true)} className="btn-primary">
-            <Plus className="h-4 w-4" />
-            New Batch
-          </button>
+          <div className="flex items-center gap-2">
+            <label className="btn-secondary cursor-pointer" title="Recreate a batch from a file made by Export on a batch page">
+              <Upload className="h-4 w-4" />
+              Import CSV
+              <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleImportFile} />
+            </label>
+            <button onClick={() => setShowForm(true)} className="btn-primary">
+              <Plus className="h-4 w-4" />
+              New Batch
+            </button>
+          </div>
         )}
       </div>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{error}</div>
+      )}
+
+      {importPlan && (
+        <div className="card p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-1 font-serif">Import batches</h3>
+          {importPlan.errors.length > 0 ? (
+            <>
+              <p className="text-sm text-red-700 mb-3">
+                Nothing will be imported until these {importPlan.errors.length === 1 ? 'problem is' : `${importPlan.errors.length} problems are`} fixed in the file:
+              </p>
+              <ul className="text-sm space-y-1 mb-4 max-h-60 overflow-y-auto">
+                {importPlan.errors.map((e, i) => (
+                  <li key={i} className="text-red-700">{e.row > 0 && <span className="font-mono text-gray-500 mr-2">Row {e.row}</span>}{e.message}</li>
+                ))}
+              </ul>
+            </>
+          ) : importPlan.batches.length === 0 ? (
+            <p className="text-sm text-gray-600 mb-4">That file has no offerings.</p>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 mb-3">
+                This will create {importPlan.batches.length === 1 ? 'a new open batch' : `${importPlan.batches.length} new open batches`}. Fees are recalculated.
+              </p>
+              <div className="table-container mb-3">
+                <table>
+                  <thead>
+                    <tr><th>Date</th><th>Description</th><th className="text-right">Offerings</th><th className="text-right">Total</th></tr>
+                  </thead>
+                  <tbody>
+                    {importPlan.batches.map((b) => (
+                      <tr key={`${b.date}|${b.description ?? ''}`}>
+                        <td>{formatDate(b.date)}</td>
+                        <td>
+                          {b.description ?? <span className="text-gray-400">—</span>}
+                          {b.possibleDuplicateId && (
+                            <div className="flex items-center gap-1 text-xs text-amber-700 mt-0.5">
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              <Link to={`/batches/${b.possibleDuplicateId}`} className="underline">A matching batch</Link>&nbsp;already exists. Importing will duplicate it.
+                            </div>
+                          )}
+                        </td>
+                        <td className="text-right">{b.offerings.length}</td>
+                        <td className="text-right font-mono">{formatCurrency(b.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {importPlan.newDonors.length > 0 && (
+                <p className="text-sm text-amber-700 mb-3">
+                  {importPlan.newDonors.length === 1 ? 'This donor is' : `These ${importPlan.newDonors.length} donors are`} not in your donor list and will be added:{' '}
+                  {importPlan.newDonors.map((d) => `${d.firstName} ${d.lastName}`).join(', ')}
+                </p>
+              )}
+            </>
+          )}
+          <div className="flex gap-3">
+            {importPlan.errors.length === 0 && importPlan.batches.length > 0 && (
+              <button onClick={confirmImport} className="btn-primary btn-sm" disabled={importing}>
+                {importing ? 'Importing…' : 'Import'}
+              </button>
+            )}
+            <button onClick={cancelImport} className="btn-secondary btn-sm" disabled={importing}>
+              {importPlan.errors.length ? 'Close' : 'Cancel'}
+            </button>
+          </div>
+        </div>
       )}
 
       {!isViewer && showForm && (

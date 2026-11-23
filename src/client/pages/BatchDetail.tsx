@@ -3,7 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.js';
 import { formatCurrency, formatDate, paymentMethodLabel } from '../lib/formatters.js';
-import { ArrowLeft, Plus, Trash2, CheckCircle2, RotateCcw, Pencil, Check, X, UserPlus, Copy, FileUp, ArrowRightLeft, BarChart2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckCircle2, RotateCcw, Pencil, Check, X, UserPlus, Copy, FileUp, ArrowRightLeft, BarChart2, Download } from 'lucide-react';
+import { downloadCsv } from '../lib/csv.js';
+import { batchToCsv, batchCsvFilename } from '../lib/batchExport.js';
 import { DonorPicker } from '../components/DonorPicker.js';
 import { ImportPayPal } from '../components/ImportPayPal.js';
 import { ImportZelle } from '../components/ImportZelle.js';
@@ -482,8 +484,18 @@ export function BatchDetail() {
             {batch.status}
           </span>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => downloadCsv(batchCsvFilename(batch), batchToCsv(batch))}
+            className="btn-secondary"
+            title="Download this batch as a spreadsheet (CSV)"
+            disabled={batch.offerings.length === 0}
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </button>
         {canEditBatch && (
-          <div className="flex gap-2">
+          <>
             {isOpen && (
               <>
                 <button onClick={() => setShowForm(!showForm)} className="btn-primary">
@@ -521,8 +533,9 @@ export function BatchDetail() {
             <button onClick={() => setDeleteStep(1)} className="btn-ghost text-red-600" title="Delete batch">
               <Trash2 className="h-4 w-4" />
             </button>
-          </div>
+          </>
         )}
+        </div>
       </div>
 
       {error && (

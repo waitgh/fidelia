@@ -7,6 +7,7 @@ import type { AppDb } from '../data/db';
 import * as categoriesData from '../data/categories';
 import * as donorsData from '../data/donors';
 import * as batchesData from '../data/batches';
+import * as batchImportData from '../data/batchImport';
 import * as offeringsData from '../data/offerings';
 import * as pledgesData from '../data/pledges';
 import * as settingsData from '../data/settings';
@@ -67,6 +68,11 @@ export const api = {
     delete: (id: number) => write((db) => batchesData.deleteBatch(db, id), 'delete_batch', 'batch', id),
     close: (id: number) => write((db) => batchesData.closeBatch(db, id), 'close_batch', 'batch', id, (r) => r.date),
     reopen: (id: number) => write((db) => batchesData.reopenBatch(db, id), 'reopen_batch', 'batch', id, (r) => r.date),
+    /** Checks a Batch → Export CSV (parsed to header→value rows) without changing anything. */
+    planImport: (rows: Record<string, string>[]) => read((db) => batchImportData.planBatchImport(db, rows)),
+    importCsv: (rows: Record<string, string>[]) =>
+      write((db) => batchImportData.importBatches(db, rows), 'import_batches', 'batch', undefined,
+        (r) => `${r.batchIds.length} batch(es), ${r.offeringCount} offerings, ${r.donorsAdded} donors added`),
   },
 
   offerings: {
