@@ -8,6 +8,7 @@ import { setPendingStore } from './church/church';
 import { getPendingSave, setPendingSave, kvGetAny, kvSetAny, kvKeys } from './storage/recent';
 import { setResumeStores, SESSION_RECORD_KEY } from './church/resume';
 import { completeGoogleSignIn } from './storage/googleAuth';
+import { MovedNotice, redirectIfOldAddress } from './lib/moved';
 
 setPendingStore({ get: getPendingSave, set: setPendingSave });
 setResumeStores({
@@ -30,12 +31,15 @@ try {
 }
 (window as any).__fideliaStartupError = googleError;
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>,
-);
+void redirectIfOldAddress().then((movedNotice) => {
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      {movedNotice && <MovedNotice />}
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </React.StrictMode>,
+  );
+});
