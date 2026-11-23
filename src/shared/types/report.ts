@@ -1,3 +1,4 @@
+import type { FundMethodCell } from '../lib/fundMethodTable.js';
 export interface DonorStatement {
   donor: {
     id: number;
@@ -73,6 +74,8 @@ export interface CongregationBreakdown {
   donorCount: number;
   categories: CategorySummary[];
   paymentMethods: PaymentMethodSummary[];
+  /** Fund × payment method groups (for the cash/check subtotal table). */
+  fundMethod: FundMethodCell[];
   donors: CongregationDonorRow[];
   offeringDetails: CongregationOfferingRow[];
 }
@@ -83,6 +86,8 @@ export interface CongregationSummary {
   congregation: string | null;
   categories: CategorySummary[];
   paymentMethods: PaymentMethodSummary[];
+  /** Fund × payment method groups (for the cash/check subtotal table). */
+  fundMethod: FundMethodCell[];
   congregations: CongregationBreakdown[];
   grandTotal: number;
   totalOfferings: number;

@@ -6,6 +6,7 @@ import { createCategory } from './categories';
 import { createBatch } from './batches';
 import { createOffering } from './offerings';
 import { createPledge } from './pledges';
+import { buildFundMethodTable } from '../../shared/lib/fundMethodTable';
 
 let db: AppDb;
 let amy: number, bob: number, carl: number, general: number, lunch: number, building: number;
@@ -61,6 +62,18 @@ describe('congregation summary', () => {
     expect(eng.categories.map((c) => [c.categoryName, c.totalAmount])).toEqual([['Building', 200], ['General', 150], ['Lunch', 10]]);
     expect(eng.offeringDetails).toHaveLength(4);
     expect(s.categories[0]).toMatchObject({ categoryName: 'General', totalAmount: 475 });
+  });
+  it('gives fund × method cells whose table totals match the report', () => {
+    const s = R.congregationSummary(db, '2026-01-01', '2026-12-31');
+    const t = buildFundMethodTable(s.fundMethod, ['cash', 'check']);
+    expect(t.totals.total.amount).toBe(s.grandTotal);
+    expect(t.totals.total.count).toBe(s.totalOfferings);
+    const general = t.rows.find((r) => r.categoryName === 'General')!;
+    expect(general.byMethod.check).toEqual({ amount: 425, count: 3, fees: 0 });
+    expect(general.byMethod.charitable!.amount).toBe(50);
+    expect(t.totals.byMethod.cash!.amount).toBe(10);
+    const eng = buildFundMethodTable(s.congregations[0]!.fundMethod, ['cash', 'check']);
+    expect(eng.totals.total.amount).toBe(360);
   });
   it('filters by congregation and by __none__', () => {
     expect(R.congregationSummary(db, '2026-01-01', '2026-12-31', 'Mandarin').grandTotal).toBe(300);

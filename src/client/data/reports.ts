@@ -18,6 +18,7 @@ import type {
 } from '../../shared/types/index';
 import type { SelectedFields } from 'drizzle-orm/sqlite-core';
 import type { AppDb } from './db';
+import type { FundMethodCell } from '../../shared/lib/fundMethodTable';
 import { DataError } from './session';
 
 export function donorStatement(db: AppDb, donorId: number, startDate: string, endDate: string): DonorStatement {
@@ -125,6 +126,18 @@ export function congregationSummary(
       .orderBy(BY_SUM_DESC)
       .all();
 
+  const fundMethod = (where: ReturnType<typeof and>): FundMethodCell[] =>
+    from({
+      categoryName: categories.name,
+      paymentMethod: offerings.paymentMethod,
+      totalAmount: SUM,
+      offeringCount: COUNT,
+      feeAmount: sql<number>`coalesce(sum(${offerings.feeAmount}), 0)`,
+    })
+      .where(where)
+      .groupBy(categories.id, offerings.paymentMethod)
+      .all();
+
   const congRows: { congregation: string | null; totalAmount: number; offeringCount: number; donorCount: number }[] = from({
     congregation: donors.congregation,
     totalAmount: SUM,
@@ -172,6 +185,7 @@ export function congregationSummary(
       donorCount: row.donorCount,
       categories: categorySummary(where),
       paymentMethods: methodSummary(where),
+      fundMethod: fundMethod(where),
       donors: donorRows,
       offeringDetails,
     };
@@ -191,6 +205,7 @@ export function congregationSummary(
     congregation: congregation || null,
     categories: categorySummary(baseFilter),
     paymentMethods: methodSummary(baseFilter),
+    fundMethod: fundMethod(baseFilter),
     congregations,
     grandTotal: totals?.grandTotal ?? 0,
     totalOfferings: totals?.totalOfferings ?? 0,

@@ -11,6 +11,8 @@ import { ImportPayPal } from '../components/ImportPayPal.js';
 import { ImportZelle } from '../components/ImportZelle.js';
 import { SortableHeader, toggleSort, type SortState } from '../components/SortableHeader.js';
 import { useSettings } from '../lib/settings.js';
+import { FundMethodTable } from '../components/FundMethodTable.js';
+import type { FundMethodCell } from '../../shared/lib/fundMethodTable.js';
 
 interface BatchData {
   id: number;
@@ -366,17 +368,9 @@ export function BatchDetail() {
 
   const isOpen = batch.status === 'open';
 
-  const summaryByCategory: Record<string, number> = {};
+  const fundMethodCells: FundMethodCell[] = [];
   for (const o of batch.offerings) {
-    summaryByCategory[o.categoryName] = (summaryByCategory[o.categoryName] ?? 0) + o.amount;
-  }
-
-  const summaryByMethod: Record<string, { total: number; fees: number }> = {};
-  for (const o of batch.offerings) {
-    const label = paymentMethodLabel(o.paymentMethod);
-    if (!summaryByMethod[label]) summaryByMethod[label] = { total: 0, fees: 0 };
-    summaryByMethod[label].total += o.amount;
-    summaryByMethod[label].fees += o.feeAmount ?? 0;
+    fundMethodCells.push({ categoryName: o.categoryName, paymentMethod: o.paymentMethod, totalAmount: o.amount, offeringCount: 1, feeAmount: o.feeAmount ?? 0 });
   }
 
   const totalFees = batch.offerings.reduce((sum, o) => sum + (o.feeAmount ?? 0), 0);
@@ -559,51 +553,11 @@ export function BatchDetail() {
             </div>
           )}
         </div>
-        <div className="stat-card">
-          <p className="stat-label">By Category</p>
-          <div className="mt-2 space-y-1">
-            {Object.entries(summaryByCategory).sort(([a], [b]) => {
-                const order = ['General', 'Building', 'Mission'];
-                const ai = order.indexOf(a);
-                const bi = order.indexOf(b);
-                if (ai !== -1 && bi !== -1) return ai - bi;
-                if (ai !== -1) return -1;
-                if (bi !== -1) return 1;
-                return a.localeCompare(b);
-              }).map(([cat, total]) => (
-              <div key={cat} className="flex justify-between text-sm">
-                <span className="text-gray-600">{cat}</span>
-                <span className="font-medium font-mono text-right w-24">{formatCurrency(total)}</span>
-              </div>
-            ))}
+        <div className="card md:col-span-2 min-w-0">
+          <div className="px-6 py-3 border-b border-gray-200">
+            <p className="stat-label">By Fund and Method</p>
           </div>
-        </div>
-        <div className="stat-card">
-          <p className="stat-label">By Method</p>
-          <div className="mt-2 space-y-1">
-            {Object.entries(summaryByMethod).sort(([a], [b]) => {
-                const order = offeringMethodOptions.map((m) => m.label);
-                const ai = order.indexOf(a);
-                const bi = order.indexOf(b);
-                if (ai !== -1 && bi !== -1) return ai - bi;
-                if (ai !== -1) return -1;
-                if (bi !== -1) return 1;
-                return a.localeCompare(b);
-              }).map(([method, { total, fees }]) => (
-              <div key={method} className="text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">{method}</span>
-                  <span className="font-medium font-mono text-right w-24">{formatCurrency(total)}</span>
-                </div>
-                {fees > 0 && (
-                  <div className="flex justify-end text-xs gap-1 pl-2">
-                    <span className="text-red-500 font-mono">−{formatCurrency(fees)}</span>
-                    <span className="text-gray-500 font-mono">net {formatCurrency(total - fees)}</span>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <FundMethodTable cells={fundMethodCells} />
         </div>
       </div>
 

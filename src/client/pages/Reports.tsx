@@ -4,6 +4,7 @@ import { formatCurrency, formatDate, paymentMethodLabel, yearStartISO, todayISO 
 import { Mail, Calendar, Church, ChevronDown, ChevronUp, Download, Eye, TrendingUp } from 'lucide-react';
 import type { DonorStatement, CongregationSummary, TrendsReport } from '../../shared/types/index.js';
 import { useSettings } from '../lib/settings.js';
+import { FundMethodTable } from '../components/FundMethodTable.js';
 import { useAuth } from '../lib/auth.js';
 import { DonorPicker } from '../components/DonorPicker.js';
 import { EmailStatements } from '../components/EmailStatements.js';
@@ -624,58 +625,11 @@ function SummaryReport({ data, canViewDonors }: { data: CongregationSummary; can
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="font-semibold">By Category</h3>
-          </div>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th className="text-right">Offerings</th>
-                  <th className="text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {data.categories.map((cat) => (
-                  <tr key={cat.categoryId}>
-                    <td className="font-medium">{cat.categoryName}</td>
-                    <td className="text-right">{cat.offeringCount}</td>
-                    <td className="text-right font-medium font-mono">{formatCurrency(cat.totalAmount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      <div className="card">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="font-semibold">By Fund and Method</h3>
         </div>
-
-        <div className="card">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="font-semibold">By Payment Method</h3>
-          </div>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Method</th>
-                  <th className="text-right">Offerings</th>
-                  <th className="text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {data.paymentMethods.map((pm) => (
-                  <tr key={pm.paymentMethod}>
-                    <td className="font-medium">{paymentMethodLabel(pm.paymentMethod)}</td>
-                    <td className="text-right">{pm.offeringCount}</td>
-                    <td className="text-right font-medium font-mono">{formatCurrency(pm.totalAmount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <FundMethodTable cells={data.fundMethod} />
       </div>
 
       {canViewDonors && (
@@ -747,58 +701,10 @@ function SummaryReport({ data, canViewDonors }: { data: CongregationSummary; can
 
             {isExpanded && (
               <div className="border-t border-gray-200">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-gray-200">
-                  <div>
-                    <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
-                      <h4 className="text-sm font-semibold text-gray-600">By Category</h4>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr>
-                            <th>Category</th>
-                            <th className="text-right whitespace-nowrap pl-6">Offerings</th>
-                            <th className="text-right whitespace-nowrap pl-6 min-w-[100px]">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {cong.categories.map((cat) => (
-                            <tr key={cat.categoryId}>
-                              <td className="font-medium">{cat.categoryName}</td>
-                              <td className="text-right whitespace-nowrap pl-6">{cat.offeringCount}</td>
-                              <td className="text-right whitespace-nowrap pl-6 font-medium font-mono">{formatCurrency(cat.totalAmount)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
-                      <h4 className="text-sm font-semibold text-gray-600">By Payment Method</h4>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr>
-                            <th>Method</th>
-                            <th className="text-right whitespace-nowrap pl-6">Offerings</th>
-                            <th className="text-right whitespace-nowrap pl-6 min-w-[100px]">Total</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {cong.paymentMethods.map((pm) => (
-                            <tr key={pm.paymentMethod}>
-                              <td className="font-medium">{paymentMethodLabel(pm.paymentMethod)}</td>
-                              <td className="text-right whitespace-nowrap pl-6">{pm.offeringCount}</td>
-                              <td className="text-right whitespace-nowrap pl-6 font-medium font-mono">{formatCurrency(pm.totalAmount)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-600">By Fund and Method</h4>
                 </div>
+                <FundMethodTable cells={cong.fundMethod} />
                 {canViewDonors && cong.donors.length > 0 && (
                   <div className="border-t border-gray-200">
                     <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
