@@ -112,7 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!church) return;
     setLoggingOut(true);
     try {
-      if (church.hasUnsavedChanges && !church.readOnly) await church.saveNow();
+      // Never let a stuck upload trap someone in: give up waiting after 20 s and ask.
+      if (church.hasUnsavedChanges && !church.readOnly) {
+        await Promise.race([
+          church.saveNow(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('saving is taking too long (check your internet connection)')), 20_000)),
+        ]);
+      }
     } catch (e) {
       setLoggingOut(false);
       if (!window.confirm(`Your latest changes could not be saved: ${(e as Error).message}\n\nSign out anyway and lose them?`)) return;
@@ -160,12 +166,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           </button>
         </div>
       )}
-      {church?.lockedBy && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-blue-50 border-blue-300 text-blue-900">
-          <p className="text-sm"><b>{church.lockedBy.owner}</b> is editing right now, so you can only view. You’ll be switched to editing automatically when they sign out or close Fidelia.</p>
-          <button className="btn-secondary btn-sm" onClick={() => void church.takeLock().then(() => { setSession(church.opened); setTick((n) => n + 1); })}>Try again</button>
+      {church?.lockedBy && (church.lockedByMe ? (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-blue-50 border-blue-300 text-blue-900 max-w-[calc(100vw-2rem)]">
+          <p className="text-sm">You have this church open for editing in <b>another window, tab or device</b>, so this one is view-only. Switch editing here? The other one becomes view-only within a minute; anything it hasn’t saved yet won’t be saved.</p>
+          <button className="btn-primary btn-sm shrink-0" onClick={() => void church.takeOverFromMyOtherWindow().then(() => { setSession(church.opened); setTick((n) => n + 1); })}>Edit here instead</button>
         </div>
-      )}
+      ) : (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-blue-50 border-blue-300 text-blue-900 max-w-[calc(100vw-2rem)]">
+          <p className="text-sm"><b>{church.lockedBy.owner}</b> is editing right now, so you can only view. You’ll be switched to editing automatically when they sign out or close Fidelia.</p>
+          <button className="btn-secondary btn-sm shrink-0" onClick={() => void church.takeLock().then(() => { setSession(church.opened); setTick((n) => n + 1); })}>Try again</button>
+        </div>
+      ))}
       {church && saveState === 'error' && church.lastError instanceof AuthExpiredError && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3 shadow-lg border bg-amber-50 border-amber-300 text-amber-900">
           <p className="text-sm">Your cloud sign-in expired. Your changes are kept safely in this browser.</p>

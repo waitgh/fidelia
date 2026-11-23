@@ -20,6 +20,8 @@ export interface StorageAdapter {
 /** A lock record kept next to the church file (e.g. Drive appProperties). */
 export interface LockInfo {
   owner: string; // display name, shown to others
+  /** Username of the editor, so a member can recognise their own lock from another window. Missing on older locks. */
+  user?: string;
   token: string; // random per session
   expiresAt: number; // ms epoch
 }

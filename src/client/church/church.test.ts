@@ -160,6 +160,44 @@ describe('edit lock in a session', () => {
     expect(listDonors(second.opened.db).map((d) => d.lastName)).toEqual(['Person']); // reloaded
   });
 
+  it('lets the same member take editing over from their other window; others cannot', async () => {
+    const { church } = await setup(); // Tom is editing in window 1
+    const stored = (church.adapter as MemoryAdapter).lock!;
+    expect(stored.user).toBeDefined();
+    expect(stored.user).not.toContain('tom'); // encrypted
+    const second = await Church.unlock(church.adapter, 'tom', 'password1');
+    expect(second.readOnly).toBe(true);
+    expect(second.lockedByMe).toBe(true);
+    expect(await second.takeLock()).toBe(false); // the ordinary path still waits
+    createDonor(church.opened.db, { firstName: 'Saved', lastName: 'First' });
+    await church.saveNow();
+    expect(await second.takeOverFromMyOtherWindow()).toBe(true);
+    expect(second.readOnly).toBe(false);
+    expect(listDonors(second.opened.db).map((d) => d.lastName)).toContain('First'); // reloaded the latest file
+    await expect(church.saveNow().then(() => church.takeLock())).resolves.toBe(false); // window 1 is now locked out
+    expect(church.readOnly).toBe(true);
+    expect(church.lockedByMe).toBe(true);
+  });
+
+  it('does not offer a take-over when someone else holds the lock', async () => {
+    const { church } = await setup(); // Tom is editing
+    const code = await church.createInvite('bookkeeper');
+    await church.saveNow();
+    church.close();
+    await new Promise((r) => setTimeout(r, 0));
+    const joining = await Church.unlockWithInvite(church.adapter, code);
+    await joining.acceptInvite('grace', 'Grace Chen', 'newperson1');
+    joining.close();
+    await new Promise((r) => setTimeout(r, 0));
+    await Church.unlock(church.adapter, 'tom', 'password1'); // Tom editing again
+    const grace = await Church.unlock(church.adapter, 'grace', 'newperson1');
+    expect(grace.readOnly).toBe(true);
+    expect(grace.lockedBy?.owner).toBe('Tom');
+    expect(grace.lockedByMe).toBe(false);
+    expect(await grace.takeOverFromMyOtherWindow()).toBe(false);
+    expect(grace.readOnly).toBe(true);
+  });
+
   it('overlapping take-over attempts do not report ourselves as the other editor', async () => {
     const { church } = await setup();
     const second = await Church.unlock(church.adapter, 'tom', 'password1');

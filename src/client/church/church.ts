@@ -53,6 +53,7 @@ async function openPlainImport(bytes?: Uint8Array): Promise<OpenedDb> {
 export type SaveState = 'saved' | 'dirty' | 'saving' | 'error';
 
 const LOCK_OWNER = 'lock-owner';
+const LOCK_USER = 'lock-user';
 
 export class Church {
   private dirty = false;
@@ -84,7 +85,24 @@ export class Church {
 
   /** A lock record with the owner's name decrypted for display. */
   private async readable(l: LockInfo | null): Promise<LockInfo | null> {
-    return l && { ...l, owner: await E.openString(this.unlocked, l.owner, LOCK_OWNER) };
+    if (!l) return null;
+    const user = l.user ? (await E.openString(this.unlocked, l.user, LOCK_USER, '')) || undefined : undefined;
+    return { ...l, owner: await E.openString(this.unlocked, l.owner, LOCK_OWNER), user };
+  }
+
+  /** The edit lock is held by this same member in another window, tab or device. */
+  get lockedByMe(): boolean {
+    return !!this.lockedBy?.user && this.lockedBy.user === this.user?.username;
+  }
+
+  /**
+   * Same member, other window: become the editor here. The other window notices on its next
+   * heartbeat (within a minute) and turns read-only; changes it had not saved yet are not saved.
+   */
+  takeOverFromMyOtherWindow(): Promise<boolean> {
+    if (!this.lockedByMe) return Promise.resolve(false);
+    this.taking ??= this.tryTakeLock(true).finally(() => { this.taking = null; });
+    return this.taking;
   }
 
   /**
@@ -97,12 +115,13 @@ export class Church {
     return this.taking;
   }
 
-  private async tryTakeLock(): Promise<boolean> {
+  private async tryTakeLock(force = false): Promise<boolean> {
     if (!hasLockStore(this.adapter) || this.opened.readOnly || this.user?.role === 'viewer') return true;
     const store = this.adapter;
     // The editor's name is stored encrypted, so only members can read who is editing.
     const owner = await E.sealString(this.unlocked, this.user?.displayName ?? 'Someone', LOCK_OWNER);
-    const r = await acquireLock(store, owner, { settleMs: Church.lockSettleMs, token: this.lock?.token });
+    const user = this.user ? await E.sealString(this.unlocked, this.user.username, LOCK_USER) : undefined;
+    const r = await acquireLock(store, owner, { settleMs: Church.lockSettleMs, token: this.lock?.token, user, force });
     if (!r.ok) {
       this.lockedBy = await this.readable(r.holder);
       this.setState(this.state);

@@ -14,12 +14,13 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function acquireLock(
   store: LockStore,
   owner: string,
-  opts: { now?: () => number; settleMs?: number; token?: string } = {},
+  opts: { now?: () => number; settleMs?: number; token?: string; user?: string; force?: boolean } = {},
 ): Promise<AcquireResult> {
   const now = opts.now ?? Date.now;
   const current = await store.readLock();
-  if (current && current.expiresAt > now() && current.token !== opts.token) return { ok: false, holder: current };
-  const lock: LockInfo = { owner, token: opts.token ?? crypto.randomUUID(), expiresAt: now() + LOCK_TTL_MS };
+  // force: take over a live lock (only offered when it is the same member's other window).
+  if (!opts.force && current && current.expiresAt > now() && current.token !== opts.token) return { ok: false, holder: current };
+  const lock: LockInfo = { owner, ...(opts.user ? { user: opts.user } : {}), token: opts.token ?? crypto.randomUUID(), expiresAt: now() + LOCK_TTL_MS };
   await store.writeLock(lock);
   await sleep(opts.settleMs ?? SETTLE_MS);
   const after = await store.readLock();
