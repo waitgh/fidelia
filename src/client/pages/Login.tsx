@@ -11,7 +11,7 @@ import type { StorageAdapter } from '../storage/types';
 import { seedDemo } from '../data/seed';
 import { getRecent, setRecent, type RecentChurch } from '../storage/recent';
 import { GoogleDriveAdapter } from '../storage/googleDrive';
-import { DropboxAdapter, dropboxAppKey, hasDropboxSession, startDropboxSignIn, completeDropboxSignIn, joinPath, parentOf } from '../storage/dropbox';
+import { DropboxAdapter, dropboxAppKey, hasDropboxSession, startDropboxSignIn, switchDropboxAccount, completeDropboxSignIn, joinPath, parentOf } from '../storage/dropbox';
 import { DropboxBrowser } from '../components/DropboxBrowser';
 import { getGoogleToken, googleClientId, startGoogleSignIn } from '../storage/googleAuth';
 import { openDrivePicker, pickerConfigured, takePickResult } from '../storage/drivePicker';
@@ -173,8 +173,12 @@ export function Login() {
   const [pickedFolder, setPickedFolder] = useState<Folder | null>(null);
   const canPick = driveConfigured && pickerConfigured();
 
+  /** Set by “Different church”: always show the list of church files instead of opening the only one found. Survives the sign-in redirect. */
+  const CHOOSE = 'fidelia.chooseChurch';
+  const choosing = () => sessionStorage.getItem(CHOOSE) === '1';
+  const chooseDifferentChurch = () => { sessionStorage.setItem(CHOOSE, '1'); go({ s: 'signinWhere' }); };
   const forgetRecent = () => { void setRecent(null); setRecentState(null); };
-  const go = (s: Step) => { a.setError(''); setPassword(''); setPassword2(''); setBrowse(null); setStep(s); };
+  const go = (s: Step) => { a.setError(''); setPassword(''); setPassword2(''); setBrowse(null); if (s.s === 'start') sessionStorage.removeItem(CHOOSE); setStep(s); };
 
   /** Opens a Drive church file after checking it still exists (it may have been deleted in Drive). */
   const openDriveFile = (f: DriveFile) => a.run(async () => {
@@ -193,7 +197,7 @@ export function Login() {
     const req = driveOpenRequest();
     if (req) { sessionStorage.removeItem('fidelia.driveOpen'); await openDriveFile(req); return; }
     const files = await GoogleDriveAdapter.list(getGoogleToken);
-    if (files.length === 1) { await openDriveFile(files[0]!); return; }
+    if (files.length === 1 && !choosing()) { await openDriveFile(files[0]!); return; }
     go({ s: 'drive', files });
   });
 
@@ -210,7 +214,7 @@ export function Login() {
       return;
     }
     const files = await DropboxAdapter.list();
-    if (files.length === 1) { go({ s: 'unlock', adapter: new DropboxAdapter(files[0]!.path) }); return; }
+    if (files.length === 1 && !choosing()) { go({ s: 'unlock', adapter: new DropboxAdapter(files[0]!.path) }); return; }
     go({ s: 'dropbox', files });
   });
 
@@ -310,6 +314,7 @@ export function Login() {
 
   /** Remember where this church lives, then enter it. */
   const enterAndRemember = (church: Church) => {
+    sessionStorage.removeItem(CHOOSE);
     if (church.adapter instanceof LocalFileAdapter) {
       void setRecent({ kind: 'local-file', label: church.adapter.describe(), ref: church.adapter.fileHandle });
     } else if (church.adapter instanceof DropboxAdapter) {
@@ -344,7 +349,7 @@ export function Login() {
         {usableRecent && (
           <p className="text-xs text-gray-500 text-center -mt-2">
             {usableRecent.label} ·{' '}
-            <button type="button" className="underline hover:text-gray-700" onClick={() => go({ s: 'signinWhere' })}>Different church</button> ·{' '}
+            <button type="button" className="underline hover:text-gray-700" onClick={chooseDifferentChurch}>Different church</button> ·{' '}
             <button type="button" className="underline hover:text-gray-700" onClick={forgetRecent} title="Stop remembering this church in this browser">Forget</button>
           </p>
         )}
@@ -439,6 +444,10 @@ export function Login() {
         ) : (
           <button type="button" className="btn-secondary w-full" onClick={() => setBrowse('signin')}><FolderOpen className="h-4 w-4" /> Browse my Dropbox</button>
         )}
+        <button type="button" className="text-sm text-primary-600 hover:underline w-full text-center" disabled={a.busy}
+          onClick={() => a.run(async () => { sessionStorage.setItem(CHOOSE, '1'); sessionStorage.setItem('fidelia.resume', 'dropbox'); await switchDropboxAccount(); })}>
+          Use a different Dropbox account
+        </button>
         <details className="text-sm">
           <summary className="cursor-pointer text-gray-600">Know where the file is?</summary>
           <form className="mt-2 flex gap-2" onSubmit={(e) => {

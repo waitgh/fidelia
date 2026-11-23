@@ -23,7 +23,21 @@ function writeTok(t: Tok | null) {
 }
 export const hasDropboxSession = () => readTok() !== null;
 
-export async function startDropboxSignIn() {
+/**
+ * Signs out of the current Dropbox account in this tab and sends the user back to Dropbox,
+ * which asks again (force_reapprove) so they can pick a different account.
+ */
+export async function switchDropboxAccount() {
+  const t = readTok();
+  writeTok(null);
+  if (t) {
+    // Best effort: revoke the old token so it can't be reused.
+    await fetch('https://api.dropboxapi.com/2/auth/token/revoke', { method: 'POST', headers: { Authorization: `Bearer ${t.access}` } }).catch(() => {});
+  }
+  await startDropboxSignIn(true);
+}
+
+export async function startDropboxSignIn(forceReapprove = false) {
   if (!dropboxAppKey()) throw new Error('Dropbox is not configured for this site (missing VITE_DROPBOX_APP_KEY)');
   const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
@@ -32,6 +46,7 @@ export async function startDropboxSignIn() {
   location.assign(`https://www.dropbox.com/oauth2/authorize?${new URLSearchParams({
     client_id: dropboxAppKey()!, response_type: 'code', redirect_uri: `${location.origin}/`, state,
     code_challenge: challenge, code_challenge_method: 'S256', token_access_type: 'offline',
+    ...(forceReapprove ? { force_reapprove: 'true' } : {}),
   })}`);
 }
 
