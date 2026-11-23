@@ -3,7 +3,8 @@ import { openDatabase, type AppDb } from './db';
 import * as R from './reports';
 import { createDonor } from './donors';
 import { createCategory } from './categories';
-import { createBatch } from './batches';
+import { createBatch, updateBatch } from './batches';
+import { batches as batchesTable } from '../../db/schema';
 import { createOffering } from './offerings';
 import { createPledge } from './pledges';
 import { buildFundMethodTable } from '../../shared/lib/fundMethodTable';
@@ -74,6 +75,15 @@ describe('congregation summary', () => {
     expect(t.totals.byMethod.cash!.amount).toBe(10);
     const eng = buildFundMethodTable(s.congregations[0]!.fundMethod, ['cash', 'check']);
     expect(eng.totals.total.amount).toBe(360);
+  });
+  it('sums attendance over batches that recorded it', () => {
+    const batches = R.congregationSummary(db, '2026-01-01', '2026-12-31');
+    expect(batches.attendance).toEqual({ services: 0, adults: 0, children: 0 });
+    const ids = db.select().from(batchesTable).all().map((b) => b.id);
+    updateBatch(db, ids[0]!, { attendanceAdults: 80, attendanceChildren: 20 });
+    updateBatch(db, ids[1]!, { attendanceAdults: 70 });
+    updateBatch(db, ids[2]!, { attendanceAdults: 999 }); // 2025, out of range
+    expect(R.congregationSummary(db, '2026-01-01', '2026-12-31').attendance).toEqual({ services: 2, adults: 150, children: 20 });
   });
   it('filters by congregation and by __none__', () => {
     expect(R.congregationSummary(db, '2026-01-01', '2026-12-31', 'Mandarin').grandTotal).toBe(300);

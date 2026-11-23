@@ -20,14 +20,14 @@ beforeEach(async () => {
 
 const exportRows = (batchId: number) => parseCsvObjects(batchToCsv(B.getBatch(db, batchId)));
 const strip = (b: ReturnType<typeof B.getBatch>) =>
-  b.offerings.map(({ donorId, categoryId, amount, feeAmount, paymentMethod, checkNumber, notes }) =>
-    ({ donorId, categoryId, amount, feeAmount, paymentMethod, checkNumber, notes })).sort((x, y) => x.amount - y.amount);
+  b.offerings.map(({ donorId, categoryId, amount, feeAmount, paymentMethod, checkNumber, notes, designation }) =>
+    ({ donorId, categoryId, amount, feeAmount, paymentMethod, checkNumber, notes, designation })).sort((x, y) => x.amount - y.amount);
 
 describe('batch import', () => {
   it('round-trips an exported batch exactly', () => {
     const b = B.createBatch(db, { date: '2026-11-22', description: 'Sunday, "main"' });
     O.createOffering(db, { batchId: b.id, donorId: ann, categoryId: general, amount: 100, paymentMethod: 'check', checkNumber: '1001' });
-    O.createOffering(db, { batchId: b.id, donorId: wang, categoryId: mission, amount: 50.1, paymentMethod: 'paypal', notes: '=thanks, pastor' });
+    O.createOffering(db, { batchId: b.id, donorId: wang, categoryId: mission, amount: 50.1, paymentMethod: 'paypal', notes: '=thanks, pastor', designation: 'Smith family' });
     O.createOffering(db, { batchId: b.id, donorId: ann, categoryId: general, amount: 20, paymentMethod: 'cash' });
     B.closeBatch(db, b.id);
 

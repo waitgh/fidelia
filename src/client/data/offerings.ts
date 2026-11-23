@@ -1,5 +1,5 @@
 // Ported from the old server app: src/server/routes/offerings.ts
-import { and, eq, getTableColumns, gte, lte } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, gte, isNotNull, lte, sql } from 'drizzle-orm';
 import { batches, categories, donors, offerings } from '../../db/schema';
 import { calculateOfferingFee } from '../../shared/lib/offering-fees';
 import type { AppDb } from './db';
@@ -41,6 +41,24 @@ function categoryName(db: AppDb, id: number) {
   return db.select({ name: categories.name }).from(categories).where(eq(categories.id, id)).get()?.name;
 }
 
+/** Trimmed designation, or null for blank. */
+function designationValue(v: unknown): string | null {
+  const s = typeof v === 'string' ? v.trim() : '';
+  return s ? s.slice(0, 100) : null;
+}
+
+/** Designations used before (for suggestions), most used first. */
+export function listDesignations(db: AppDb): string[] {
+  return db
+    .select({ designation: offerings.designation })
+    .from(offerings)
+    .where(and(isNotNull(offerings.designation), sql`trim(${offerings.designation}) <> ''`))
+    .groupBy(offerings.designation)
+    .orderBy(desc(sql`count(*)`), offerings.designation)
+    .all()
+    .map((r) => r.designation!);
+}
+
 function positiveAmount(v: unknown): number {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) throw new DataError('Amount must be positive');
@@ -67,6 +85,7 @@ export function createOffering(db: AppDb, data: Record<string, any>) {
       paymentMethod,
       checkNumber: checkNumber || null,
       notes: notes || null,
+      designation: designationValue(data.designation),
     })
     .returning()
     .get();
@@ -91,6 +110,7 @@ export function updateOffering(db: AppDb, id: number, data: Record<string, any>)
   if (data.paymentMethod !== undefined) updates.paymentMethod = data.paymentMethod;
   if (data.checkNumber !== undefined) updates.checkNumber = data.checkNumber || null;
   if (data.notes !== undefined) updates.notes = data.notes || null;
+  if (data.designation !== undefined) updates.designation = designationValue(data.designation);
   updates.feeAmount = calculateOfferingFee(
     updates.amount ?? offering.amount,
     String(updates.paymentMethod ?? offering.paymentMethod),

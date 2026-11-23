@@ -67,10 +67,24 @@ function setBatch(db: AppDb, id: number, updates: Partial<typeof batches.$inferI
   return row;
 }
 
-export function updateBatch(db: AppDb, id: number, data: { date?: string; description?: string | null }) {
+/** A headcount: a whole number 0 or more, or null for not recorded. */
+function headcount(v: unknown, label: string): number | null {
+  if (v === null || v === '' || v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > 100000) throw new DataError(`${label} must be a whole number`);
+  return n;
+}
+
+export function updateBatch(
+  db: AppDb,
+  id: number,
+  data: { date?: string; description?: string | null; attendanceAdults?: number | string | null; attendanceChildren?: number | string | null },
+) {
   const updates: Partial<typeof batches.$inferInsert> = {};
   if (data.date !== undefined) updates.date = data.date;
   if (data.description !== undefined) updates.description = data.description;
+  if (data.attendanceAdults !== undefined) updates.attendanceAdults = headcount(data.attendanceAdults, 'Adults');
+  if (data.attendanceChildren !== undefined) updates.attendanceChildren = headcount(data.attendanceChildren, 'Children');
   return setBatch(db, id, updates);
 }
 

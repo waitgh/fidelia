@@ -15,6 +15,7 @@ export interface BatchExportInput {
     paymentMethod: string;
     checkNumber: string | null;
     notes: string | null;
+    designation?: string | null;
   }[];
 }
 
@@ -25,7 +26,7 @@ const money = (n: number) => Math.round(n * 100) / 100;
  * `data/batchImport.ts` reads this format back, so keep the two in step.
  */
 export function batchToCsv(batch: BatchExportInput): string {
-  const header = ['Date', 'Description', 'Donor Last Name', 'Donor First Name', 'Congregation', 'Category', 'Method', 'Check #', 'Amount', 'Fee', 'Net', 'Notes'];
+  const header = ['Date', 'Description', 'Donor Last Name', 'Donor First Name', 'Congregation', 'Category', 'Designation', 'Method', 'Check #', 'Amount', 'Fee', 'Net', 'Notes'];
   let gross = 0;
   let fees = 0;
   const rows = batch.offerings.map((o) => {
@@ -39,6 +40,7 @@ export function batchToCsv(batch: BatchExportInput): string {
       o.donorFirstName,
       o.donorCongregation,
       o.categoryName,
+      o.designation ?? null,
       paymentMethodLabel(o.paymentMethod),
       o.checkNumber,
       money(o.amount),
@@ -47,7 +49,7 @@ export function batchToCsv(batch: BatchExportInput): string {
       o.notes,
     ];
   });
-  const total = ['Total', '', '', '', '', '', '', '', money(gross), money(fees), money(gross - fees), `${batch.offerings.length} offerings`];
+  const total = ['Total', '', '', '', '', '', '', '', '', money(gross), money(fees), money(gross - fees), `${batch.offerings.length} offerings`];
   return toCsv([header, ...rows, total]);
 }
 

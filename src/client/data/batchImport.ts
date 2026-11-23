@@ -13,6 +13,7 @@ const HEADERS: Record<string, keyof RowFields> = {
   donorfirstname: 'firstName', firstname: 'firstName',
   congregation: 'congregation',
   category: 'category', fund: 'category',
+  designation: 'designation', designatedfor: 'designation',
   method: 'method', paymentmethod: 'method',
   check: 'checkNumber', checknumber: 'checkNumber', checkno: 'checkNumber',
   amount: 'amount',
@@ -21,12 +22,12 @@ const HEADERS: Record<string, keyof RowFields> = {
 const REQUIRED: (keyof RowFields)[] = ['date', 'lastName', 'firstName', 'category', 'method', 'amount'];
 const LABELS: Record<keyof RowFields, string> = {
   date: 'Date', description: 'Description', lastName: 'Donor Last Name', firstName: 'Donor First Name',
-  congregation: 'Congregation', category: 'Category', method: 'Method', checkNumber: 'Check #', amount: 'Amount', notes: 'Notes',
+  congregation: 'Congregation', category: 'Category', designation: 'Designation', method: 'Method', checkNumber: 'Check #', amount: 'Amount', notes: 'Notes',
 };
 
 interface RowFields {
   date: string; description: string; lastName: string; firstName: string; congregation: string;
-  category: string; method: string; checkNumber: string; amount: string; notes: string;
+  category: string; designation: string; method: string; checkNumber: string; amount: string; notes: string;
 }
 
 export interface PlannedOffering {
@@ -39,6 +40,7 @@ export interface PlannedOffering {
   amount: number;
   checkNumber: string | null;
   notes: string | null;
+  designation: string | null;
 }
 
 export interface PlannedBatch {
@@ -148,7 +150,7 @@ export function planBatchImport(db: AppDb, rawRows: Record<string, string>[]): B
     const g = groups.get(gk)!;
     g.offerings.push({
       row, donorId, donorKey, donorName, categoryId: category.id, paymentMethod, amount: cents(amount),
-      checkNumber: f.checkNumber || null, notes: f.notes || null,
+      checkNumber: f.checkNumber || null, notes: f.notes || null, designation: f.designation?.slice(0, 100) || null,
     });
     g.total = cents(g.total + amount);
   });
@@ -205,6 +207,7 @@ export function importBatches(db: AppDb, rawRows: Record<string, string>[]): Bat
           paymentMethod: o.paymentMethod,
           checkNumber: o.checkNumber,
           notes: o.notes,
+          designation: o.designation,
         }).run();
         result.offeringCount++;
       }

@@ -53,6 +53,9 @@ export const batches = sqliteTable(
       .notNull()
       .default(sql`(datetime('now'))`),
     closedAt: text('closed_at'),
+    /** Attendance at this service; null = not recorded. */
+    attendanceAdults: integer('attendance_adults'),
+    attendanceChildren: integer('attendance_children'),
   },
   (table) => ({
     dateIdx: index('idx_batches_date').on(table.date),
@@ -106,6 +109,8 @@ export const offerings = sqliteTable(
     paymentMethod: text('payment_method').notNull(),
     checkNumber: text('check_number'),
     notes: text('notes'),
+    /** Who or what a gift is designated for within its fund (e.g. a missionary); null = undesignated. */
+    designation: text('designation'),
     createdAt: text('created_at')
       .notNull()
       .default(sql`(datetime('now'))`),

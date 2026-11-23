@@ -80,6 +80,7 @@ export const api = {
     create: (data: any) => write((db) => offeringsData.createOffering(db, data), 'create_offering', 'offering', undefined, (r) => `batch#${r.batchId} donor#${r.donorId} $${r.amount}`),
     update: (id: number, data: any) => write((db) => offeringsData.updateOffering(db, id, data), 'update_offering', 'offering', id, (r) => r && `batch#${r.batchId} donor#${r.donorId} $${r.amount}`),
     delete: (id: number) => write((db) => offeringsData.deleteOffering(db, id), 'delete_offering', 'offering', id),
+    designations: () => read((db) => offeringsData.listDesignations(db)),
     reassign: (id: number, batchId: number) => write((db) => offeringsData.reassignOffering(db, id, batchId), 'reassign_offering', 'offering', id, () => `to batch#${batchId}`),
   },
 

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { buildFundMethodTable, type FundMethodCell, type FundMethodSums } from '../../shared/lib/fundMethodTable.js';
 import { formatCurrency, paymentMethodLabel } from '../lib/formatters.js';
 import { useSettings } from '../lib/settings.js';
@@ -14,8 +14,14 @@ const TOTAL_COL = 'bg-gray-50 border-l border-gray-200';
  * Funds down the side, payment methods across the top, with a subtotal for every fund and every method
  * (matches a counting sheet that lists cash and check separately). Methods with no gifts are left out.
  */
-export function FundMethodTable({ cells, showFees = true }: { cells: FundMethodCell[]; showFees?: boolean }) {
-  const { offeringMethodOptions } = useSettings();
+export function FundMethodTable({ cells, showFees = true, methodOptions }: {
+  cells: FundMethodCell[];
+  showFees?: boolean;
+  /** Overrides the Settings context (for off-screen PDF rendering, which has no provider). */
+  methodOptions?: { value: string; label: string }[];
+}) {
+  const settings = useSettings();
+  const offeringMethodOptions = methodOptions ?? settings.offeringMethodOptions;
   const t = useMemo(() => buildFundMethodTable(cells, offeringMethodOptions.map((m) => m.value)), [cells, offeringMethodOptions]);
   const label = (m: string) => offeringMethodOptions.find((o) => o.value === m)?.label ?? paymentMethodLabel(m);
   if (!t.rows.length) return <p className="px-6 py-4 text-sm text-gray-500">No offerings.</p>;
@@ -43,13 +49,24 @@ export function FundMethodTable({ cells, showFees = true }: { cells: FundMethodC
         </thead>
         <tbody className="divide-y divide-gray-100">
           {t.rows.map((r) => (
-            <tr key={r.categoryName}>
-              <td className="pl-6 pr-3 py-2 font-medium text-gray-900">{r.categoryName}</td>
-              {t.methods.map((m) => (
-                <td key={m} className={NUM}>{r.byMethod[m]?.count ? plain.format(r.byMethod[m]!.amount) : ''}</td>
+            <Fragment key={r.categoryName}>
+              <tr>
+                <td className="pl-6 pr-3 py-2 font-medium text-gray-900">{r.categoryName}</td>
+                {t.methods.map((m) => (
+                  <td key={m} className={NUM}>{r.byMethod[m]?.count ? plain.format(r.byMethod[m]!.amount) : ''}</td>
+                ))}
+                <td className={`${NUM} ${TOTAL_COL} pr-6 font-semibold text-gray-900`}>{plain.format(r.total.amount)}</td>
+              </tr>
+              {r.designations.map((d) => (
+                <tr key={d.name} className="!border-t-0 text-xs text-gray-500">
+                  <td className={`pl-10 pr-3 py-1 ${d.undesignated ? 'italic' : ''}`}>{d.name}</td>
+                  {t.methods.map((m) => (
+                    <td key={m} className={`${NUM} py-1`}>{d.byMethod[m]?.count ? plain.format(d.byMethod[m]!.amount) : ''}</td>
+                  ))}
+                  <td className={`${NUM} ${TOTAL_COL} py-1 pr-6`}>{plain.format(d.total.amount)}</td>
+                </tr>
               ))}
-              <td className={`${NUM} ${TOTAL_COL} pr-6 font-semibold text-gray-900`}>{plain.format(r.total.amount)}</td>
-            </tr>
+            </Fragment>
           ))}
         </tbody>
         <tfoot>

@@ -2,7 +2,7 @@
 import type { AppDb } from './db';
 import { createCategory, listCategories } from './categories';
 import { createDonor } from './donors';
-import { createBatch, closeBatch } from './batches';
+import { createBatch, closeBatch, updateBatch } from './batches';
 import { createOffering } from './offerings';
 import { createPledge } from './pledges';
 import { updateSetting } from './settings';
@@ -32,8 +32,12 @@ export function seedDemo(db: AppDb, year = new Date().getFullYear()) {
     donors.forEach((donorId, i) => {
       if ((i + m) % 4 === 3) return;
       const amount = 50 + ((i * 37 + m * 13) % 10) * 25;
-      createOffering(db, { batchId: batch, donorId, categoryId: cats[(i + m) % 3]!, amount, paymentMethod: methods[(i * 2 + m) % 4] });
+      const categoryId = cats[(i + m) % 3]!;
+      // Some Mission gifts are for a named missionary.
+      const designation = categoryId === cats[1] && i % 2 === 0 ? (i % 4 === 0 ? 'Smith family (Kenya)' : 'Rev. Lin') : null;
+      createOffering(db, { batchId: batch, donorId, categoryId, amount, paymentMethod: methods[(i * 2 + m) % 4], designation });
     });
+    updateBatch(db, batch, { attendanceAdults: 70 + ((m * 7) % 15), attendanceChildren: 18 + ((m * 3) % 8) });
     createOffering(db, { batchId: batch, donorId: donors[0]!, categoryId: cats[3]!, amount: 8, paymentMethod: 'cash' });
     if (m < thisMonth) closeBatch(db, batch);
   }

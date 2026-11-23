@@ -623,6 +623,27 @@ function SummaryReport({ data, canViewDonors }: { data: CongregationSummary; can
             <p className="text-2xl font-bold">{data.uniqueDonors}</p>
           </div>
         </div>
+        {data.attendance.services > 0 && (
+          <div className="bg-gray-50 rounded-lg p-4 -mt-2">
+            <p className="text-sm text-gray-500 mb-1">
+              Attendance · {data.attendance.services} service{data.attendance.services !== 1 ? 's' : ''} recorded
+              {data.congregation && <span className="text-gray-400"> (all congregations; attendance isn’t split by congregation)</span>}
+            </p>
+            <div className="flex flex-wrap gap-x-8 gap-y-1 tabular-nums">
+              {(() => {
+                const a = data.attendance;
+                const avg = (n: number) => Math.round(n / a.services);
+                return (
+                  <>
+                    <span><span className="text-xl font-bold">{avg(a.adults + a.children)}</span> <span className="text-sm text-gray-500">average per service</span></span>
+                    <span className="text-sm text-gray-600">Adults avg {avg(a.adults)} · Children avg {avg(a.children)}</span>
+                    <span className="text-sm text-gray-600">Total {a.adults + a.children} ({a.adults} adults, {a.children} children)</span>
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="card">
@@ -656,7 +677,7 @@ function SummaryReport({ data, canViewDonors }: { data: CongregationSummary; can
                     <td className="font-medium whitespace-nowrap">{row.firstName} {row.lastName}</td>
                     <td className="text-gray-500">{row.envelopeNumber ?? '—'}</td>
                     <td className="whitespace-nowrap">{formatDate(row.date)}</td>
-                    <td>{row.categoryName}</td>
+                    <td>{row.categoryName}{row.designation && <span className="text-gray-500"> — {row.designation}</span>}</td>
                     <td className="whitespace-nowrap">{paymentMethodLabel(row.paymentMethod)}</td>
                     <td className="text-gray-500">{row.checkNumber ?? '—'}</td>
                     <td className="text-right font-medium whitespace-nowrap font-mono">{formatCurrency(row.amount)}</td>

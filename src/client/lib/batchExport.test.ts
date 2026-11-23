@@ -13,25 +13,27 @@ describe('batchToCsv', () => {
       date: '2026-11-22', description: 'Sunday', status: 'closed',
       offerings: [
         offering({}),
-        offering({ donorFirstName: '王', donorLastName: '李', amount: 50.1, feeAmount: 1.75, paymentMethod: 'paypal', checkNumber: null, notes: 'thanks, "pastor"' }),
+        offering({ designation: 'Smith', donorFirstName: '王', donorLastName: '李', amount: 50.1, feeAmount: 1.75, paymentMethod: 'paypal', checkNumber: null, notes: 'thanks, "pastor"' }),
         offering({ donorLastName: '=HYPERLINK("x")', amount: 0.2 }),
       ],
     });
     const rows = parseCsv(csv);
-    expect(rows[0]!).toEqual(['Date', 'Description', 'Donor Last Name', 'Donor First Name', 'Congregation', 'Category', 'Method', 'Check #', 'Amount', 'Fee', 'Net', 'Notes']);
+    expect(rows[0]!).toEqual(['Date', 'Description', 'Donor Last Name', 'Donor First Name', 'Congregation', 'Category', 'Designation', 'Method', 'Check #', 'Amount', 'Fee', 'Net', 'Notes']);
     expect(rows).toHaveLength(5);
     expect(rows[1]!.slice(0, 2)).toEqual(['2026-11-22', 'Sunday']);
-    expect(rows[1]!.slice(8, 11)).toEqual(['100', '0', '100']);
+    expect(rows[1]!.slice(9, 12)).toEqual(['100', '0', '100']);
     expect(rows[2]![2]).toBe('李');
-    expect(rows[2]!.slice(8, 12)).toEqual(['50.1', '1.75', '48.35', 'thanks, "pastor"']);
+    expect(rows[2]![6]).toBe('Smith');
+    expect(rows[1]![6]).toBe('');
+    expect(rows[2]!.slice(9, 13)).toEqual(['50.1', '1.75', '48.35', 'thanks, "pastor"']);
     expect(rows[3]![2]).toBe(`'=HYPERLINK("x")`);
     expect(rows[4]!.slice(0, 1)).toEqual(['Total']);
-    expect(rows[4]!.slice(8, 12)).toEqual(['150.3', '1.75', '148.55', '3 offerings']);
+    expect(rows[4]!.slice(9, 13)).toEqual(['150.3', '1.75', '148.55', '3 offerings']);
   });
 
   it('handles an empty batch', () => {
     const rows = parseCsv(batchToCsv({ date: '2026-11-22', description: null, status: 'open', offerings: [] }));
-    expect(rows[1]!.slice(8, 11)).toEqual(['0', '0', '0']);
+    expect(rows[1]!.slice(9, 12)).toEqual(['0', '0', '0']);
   });
 });
 

@@ -33,6 +33,7 @@ export function donorStatement(db: AppDb, donorId: number, startDate: string, en
       amount: offerings.amount,
       paymentMethod: offerings.paymentMethod,
       checkNumber: offerings.checkNumber,
+      designation: offerings.designation,
     })
     .from(offerings)
     .innerJoin(batches, eq(offerings.batchId, batches.id))
@@ -130,12 +131,13 @@ export function congregationSummary(
     from({
       categoryName: categories.name,
       paymentMethod: offerings.paymentMethod,
+      designation: offerings.designation,
       totalAmount: SUM,
       offeringCount: COUNT,
       feeAmount: sql<number>`coalesce(sum(${offerings.feeAmount}), 0)`,
     })
       .where(where)
-      .groupBy(categories.id, offerings.paymentMethod)
+      .groupBy(categories.id, offerings.paymentMethod, offerings.designation)
       .all();
 
   const congRows: { congregation: string | null; totalAmount: number; offeringCount: number; donorCount: number }[] = from({
@@ -174,6 +176,7 @@ export function congregationSummary(
       amount: offerings.amount,
       paymentMethod: offerings.paymentMethod,
       checkNumber: offerings.checkNumber,
+      designation: offerings.designation,
     })
       .where(where)
       .orderBy(donors.lastName, donors.firstName, batches.date)
@@ -199,10 +202,21 @@ export function congregationSummary(
     .where(baseFilter)
     .get();
 
+  const att = db
+    .select({
+      services: sql<number>`count(*)`,
+      adults: sql<number>`coalesce(sum(${batches.attendanceAdults}), 0)`,
+      children: sql<number>`coalesce(sum(${batches.attendanceChildren}), 0)`,
+    })
+    .from(batches)
+    .where(and(dateFilter, sql`(${batches.attendanceAdults} is not null or ${batches.attendanceChildren} is not null)`))
+    .get();
+
   return {
     startDate,
     endDate,
     congregation: congregation || null,
+    attendance: { services: att?.services ?? 0, adults: att?.adults ?? 0, children: att?.children ?? 0 },
     categories: categorySummary(baseFilter),
     paymentMethods: methodSummary(baseFilter),
     fundMethod: fundMethod(baseFilter),

@@ -32,6 +32,24 @@ describe('buildFundMethodTable', () => {
     expect(t.totals.total.amount).toBe(2);
   });
 
+  it('breaks a fund down by designation only when it has designated gifts', () => {
+    const t = buildFundMethodTable([
+      { ...cell('Mission', 'check', 300, 2), designation: 'Smith' },
+      { ...cell('Mission', 'cash', 20, 1), designation: ' Smith ' },
+      { ...cell('Mission', 'cash', 40, 2), designation: 'Adams' },
+      cell('Mission', 'cash', 15, 1),
+      { ...cell('Mission', 'check', 5, 1), designation: '' },
+      cell('General', 'cash', 100, 1),
+    ], ['cash', 'check']);
+    const mission = t.rows.find((r) => r.categoryName === 'Mission')!;
+    expect(mission.total.amount).toBe(380);
+    expect(mission.designations.map((d) => [d.name, d.total.amount, d.undesignated])).toEqual([
+      ['Adams', 40, false], ['Smith', 320, false], ['Undesignated', 20, true],
+    ]);
+    expect(mission.designations[1]!.byMethod.cash!.amount).toBe(20);
+    expect(t.rows.find((r) => r.categoryName === 'General')!.designations).toEqual([]);
+  });
+
   it('handles no offerings', () => {
     expect(buildFundMethodTable([], ['cash'])).toEqual({ methods: [], rows: [], totals: { byMethod: {}, total: { amount: 0, count: 0, fees: 0 } } });
   });

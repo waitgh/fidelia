@@ -21,6 +21,7 @@ export interface DonorStatement {
     amount: number;
     paymentMethod: string;
     checkNumber: string | null;
+    designation: string | null;
   }[];
   totalsByCategory: Record<string, number>;
   grandTotal: number;
@@ -65,6 +66,7 @@ export interface CongregationOfferingRow {
   amount: number;
   paymentMethod: string;
   checkNumber: string | null;
+  designation: string | null;
 }
 
 export interface CongregationBreakdown {
@@ -80,6 +82,13 @@ export interface CongregationBreakdown {
   offeringDetails: CongregationOfferingRow[];
 }
 
+export interface AttendanceSummary {
+  /** Batches in range with attendance recorded. */
+  services: number;
+  adults: number;
+  children: number;
+}
+
 export interface CongregationSummary {
   startDate: string;
   endDate: string;
@@ -89,6 +98,8 @@ export interface CongregationSummary {
   /** Fund × payment method groups (for the cash/check subtotal table). */
   fundMethod: FundMethodCell[];
   congregations: CongregationBreakdown[];
+  /** Attendance over the date range (batches are services; not split by congregation). */
+  attendance: AttendanceSummary;
   grandTotal: number;
   totalOfferings: number;
   uniqueDonors: number;

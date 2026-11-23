@@ -141,7 +141,7 @@ export function DonorStatementReport({ data, template, id = 'report-content' }: 
               {data.offerings.map((o, i) => (
                 <tr key={i}>
                   <td>{formatDate(o.date)}</td>
-                  <td>{o.category}</td>
+                  <td>{o.category}{o.designation && <span className="text-gray-500"> — {o.designation}</span>}</td>
                   <td>
                     <span className="badge-gray">{paymentMethodLabel(o.paymentMethod)}</span>
                   </td>

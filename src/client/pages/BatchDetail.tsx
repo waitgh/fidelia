@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { useAuth } from '../lib/auth.js';
 import { formatCurrency, formatDate, paymentMethodLabel } from '../lib/formatters.js';
-import { ArrowLeft, Plus, Trash2, CheckCircle2, RotateCcw, Pencil, Check, X, UserPlus, Copy, FileUp, ArrowRightLeft, BarChart2, Download } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, CheckCircle2, RotateCcw, Pencil, Check, X, UserPlus, Copy, FileUp, ArrowRightLeft, BarChart2, Download, FileText } from 'lucide-react';
+import { downloadBatchSummaryPdf, batchFundMethodCells } from '../components/BatchSummarySheet.js';
 import { downloadCsv } from '../lib/csv.js';
 import { batchToCsv, batchCsvFilename } from '../lib/batchExport.js';
 import { DonorPicker } from '../components/DonorPicker.js';
@@ -12,13 +13,14 @@ import { ImportZelle } from '../components/ImportZelle.js';
 import { SortableHeader, toggleSort, type SortState } from '../components/SortableHeader.js';
 import { useSettings } from '../lib/settings.js';
 import { FundMethodTable } from '../components/FundMethodTable.js';
-import type { FundMethodCell } from '../../shared/lib/fundMethodTable.js';
 
 interface BatchData {
   id: number;
   date: string;
   description: string | null;
   status: string;
+  attendanceAdults: number | null;
+  attendanceChildren: number | null;
   totalAmount: number;
   offeringCount: number;
   offerings: OfferingRow[];
@@ -33,6 +35,7 @@ interface OfferingRow {
   paymentMethod: string;
   checkNumber: string | null;
   notes: string | null;
+  designation: string | null;
   donorFirstName: string;
   donorLastName: string;
   donorCongregation: string | null;
@@ -69,6 +72,7 @@ interface EditState {
   paymentMethod: string;
   checkNumber: string;
   notes: string;
+  designation: string;
 }
 
 type OfferingSortColumn = 'donor' | 'congregation' | 'category' | 'method' | 'checkNumber' | 'amount';
@@ -77,7 +81,7 @@ export function BatchDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { offeringMethodOptions } = useSettings();
+  const { offeringMethodOptions, churchName } = useSettings();
   const defaultPaymentMethod = offeringMethodOptions[0]?.value ?? 'cash';
   const canEditBatch = user?.role !== 'viewer';
   const [batch, setBatch] = useState<BatchData | null>(null);
@@ -112,10 +116,13 @@ export function BatchDetail() {
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [donorId, setDonorId] = useState('');
-  const [formRows, setFormRows] = useState<{ amount: string; categoryId: string; paymentMethod: string; checkNumber: string }[]>(
-    [{ amount: '', categoryId: '', paymentMethod: 'cash', checkNumber: '' }],
+  const [formRows, setFormRows] = useState<{ amount: string; categoryId: string; paymentMethod: string; checkNumber: string; designation: string }[]>(
+    [{ amount: '', categoryId: '', paymentMethod: 'cash', checkNumber: '', designation: '' }],
   );
   const [notes, setNotes] = useState('');
+  const [designationOptions, setDesignationOptions] = useState<string[]>([]);
+  const [attendance, setAttendance] = useState({ adults: '', children: '' });
+  const [printing, setPrinting] = useState(false);
   const amountRefs = useRef<(HTMLInputElement | null)[]>([]);
   const checkNumberRefs = useRef<(HTMLInputElement | null)[]>([]);
   const donorTriggerRef = useRef<HTMLButtonElement>(null);
@@ -123,7 +130,11 @@ export function BatchDetail() {
 
   const loadBatch = useCallback(() => {
     if (!id) return;
-    api.batches.get(Number(id)).then(setBatch).catch(console.error);
+    api.batches.get(Number(id)).then((b) => {
+      setBatch(b);
+      setAttendance({ adults: b.attendanceAdults?.toString() ?? '', children: b.attendanceChildren?.toString() ?? '' });
+    }).catch(console.error);
+    api.offerings.designations().then(setDesignationOptions).catch(() => {});
   }, [id]);
 
   const loadDonors = useCallback(() => {
@@ -147,7 +158,7 @@ export function BatchDetail() {
     api.categories.list().then((cats) => {
       setCategories(cats);
       const general = cats.find((c: CategoryOption) => c.name.toLowerCase() === 'general');
-      if (general) setFormRows([{ amount: '', categoryId: String(general.id), paymentMethod: defaultPaymentMethod, checkNumber: '' }]);
+      if (general) setFormRows([{ amount: '', categoryId: String(general.id), paymentMethod: defaultPaymentMethod, checkNumber: '', designation: '' }]);
     });
   }, [loadBatch, loadDonors]);
 
@@ -158,12 +169,12 @@ export function BatchDetail() {
 
   const resetForm = () => {
     setDonorId('');
-    setFormRows([{ amount: '', categoryId: defaultCategoryId(), paymentMethod: defaultPaymentMethod, checkNumber: '' }]);
+    setFormRows([{ amount: '', categoryId: defaultCategoryId(), paymentMethod: defaultPaymentMethod, checkNumber: '', designation: '' }]);
     setNotes('');
     setError('');
   };
 
-  const updateRow = (idx: number, field: 'amount' | 'categoryId' | 'paymentMethod' | 'checkNumber', value: string) => {
+  const updateRow = (idx: number, field: 'amount' | 'categoryId' | 'paymentMethod' | 'checkNumber' | 'designation', value: string) => {
     setFormRows((prev) => prev.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
   };
 
@@ -229,6 +240,7 @@ export function BatchDetail() {
           paymentMethod: row.paymentMethod,
           checkNumber: row.checkNumber || null,
           notes: notes || null,
+          designation: row.designation.trim() || null,
         });
       }
       resetForm();
@@ -248,6 +260,7 @@ export function BatchDetail() {
       paymentMethod: o.paymentMethod,
       checkNumber: o.checkNumber ?? '',
       notes: o.notes ?? '',
+      designation: o.designation ?? '',
     });
     setError('');
   };
@@ -269,6 +282,7 @@ export function BatchDetail() {
         paymentMethod: editState.paymentMethod,
         checkNumber: editState.checkNumber || null,
         notes: editState.notes || null,
+        designation: editState.designation.trim() || null,
       });
       cancelEdit();
       loadBatch();
@@ -368,10 +382,7 @@ export function BatchDetail() {
 
   const isOpen = batch.status === 'open';
 
-  const fundMethodCells: FundMethodCell[] = [];
-  for (const o of batch.offerings) {
-    fundMethodCells.push({ categoryName: o.categoryName, paymentMethod: o.paymentMethod, totalAmount: o.amount, offeringCount: 1, feeAmount: o.feeAmount ?? 0 });
-  }
+  const fundMethodCells = batchFundMethodCells(batch.offerings);
 
   const totalFees = batch.offerings.reduce((sum, o) => sum + (o.feeAmount ?? 0), 0);
   const netTotal = batch.totalAmount - totalFees;
@@ -400,6 +411,31 @@ export function BatchDetail() {
 
   const handleSort = (col: OfferingSortColumn) => {
     setSort(toggleSort(sort, col, col === 'amount' ? 'desc' : 'asc'));
+  };
+
+  const saveAttendance = async (field: 'adults' | 'children') => {
+    const value = attendance[field].trim();
+    const current = field === 'adults' ? batch.attendanceAdults : batch.attendanceChildren;
+    if ((current?.toString() ?? '') === value) return;
+    setError('');
+    try {
+      await api.batches.update(batch.id, field === 'adults' ? { attendanceAdults: value } : { attendanceChildren: value });
+      loadBatch();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to save attendance');
+    }
+  };
+
+  const printSummary = async () => {
+    setPrinting(true);
+    setError('');
+    try {
+      await downloadBatchSummaryPdf({ ...batch, churchName, methodOptions: offeringMethodOptions });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to make the summary sheet');
+    } finally {
+      setPrinting(false);
+    }
   };
 
   const openDonorHistory = async (donorId: number, donorName: string, year = new Date().getFullYear()) => {
@@ -488,6 +524,10 @@ export function BatchDetail() {
             <Download className="h-4 w-4" />
             Export
           </button>
+          <button onClick={printSummary} className="btn-secondary" disabled={printing} title="Download a one-page summary sheet (PDF) for counters to sign">
+            <FileText className="h-4 w-4" />
+            {printing ? 'Preparing…' : 'Summary Sheet'}
+          </button>
         {canEditBatch && (
           <>
             {isOpen && (
@@ -552,6 +592,35 @@ export function BatchDetail() {
               </div>
             </div>
           )}
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <p className="stat-label mb-2">Attendance</p>
+            <div className="flex items-end gap-3 text-sm">
+              {(['adults', 'children'] as const).map((f) => (
+                <label key={f} className="flex-1">
+                  <span className="block text-xs text-gray-500 mb-1">{f === 'adults' ? 'Adults' : 'Children'}</span>
+                  {canEditBatch ? (
+                    <input
+                      type="number" min="0" step="1" inputMode="numeric"
+                      className="input h-8 py-1 text-right tabular-nums"
+                      placeholder="—"
+                      value={attendance[f]}
+                      onChange={(e) => setAttendance({ ...attendance, [f]: e.target.value })}
+                      onBlur={() => void saveAttendance(f)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    />
+                  ) : (
+                    <span className="block text-right tabular-nums font-medium">{(f === 'adults' ? batch.attendanceAdults : batch.attendanceChildren) ?? '—'}</span>
+                  )}
+                </label>
+              ))}
+              <div className="flex-1 text-right">
+                <span className="block text-xs text-gray-500 mb-1">Total</span>
+                <span className="block h-8 leading-8 font-semibold tabular-nums">
+                  {batch.attendanceAdults == null && batch.attendanceChildren == null ? '—' : (batch.attendanceAdults ?? 0) + (batch.attendanceChildren ?? 0)}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="card md:col-span-2 min-w-0">
           <div className="px-6 py-3 border-b border-gray-200">
@@ -590,7 +659,7 @@ export function BatchDetail() {
 
           <div className="space-y-2">
             {formRows.map((row, idx) => (
-              <div key={idx} className="grid grid-cols-1 md:grid-cols-[8rem_1fr_10rem_7rem_auto] gap-3 items-end [&_.input]:h-9">
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-[8rem_1fr_10rem_7rem_12rem_auto] gap-3 items-end [&_.input]:h-9">
                 <div>
                   {idx === 0 && <label className="label">Amount *</label>}
                   <input
@@ -650,6 +719,17 @@ export function BatchDetail() {
                     disabled={row.paymentMethod !== 'check'}
                   />
                 </div>
+                <div>
+                  {idx === 0 && <label className="label">Designation</label>}
+                  <input
+                    className="input"
+                    list="designation-options"
+                    placeholder="Optional" title="Who the gift is for within the fund, e.g. a missionary"
+                    maxLength={100}
+                    value={row.designation}
+                    onChange={(e) => updateRow(idx, 'designation', e.target.value)}
+                  />
+                </div>
                 <div className={`flex gap-1 ${idx === 0 ? 'mt-5' : ''}`}>
                   <button
                     type="button"
@@ -673,6 +753,10 @@ export function BatchDetail() {
               </div>
             ))}
           </div>
+
+          <datalist id="designation-options">
+            {designationOptions.map((d) => <option key={d} value={d} />)}
+          </datalist>
 
           <div className="mt-4 flex gap-3">
             <button type="submit" className="btn-primary btn-sm">
@@ -724,6 +808,17 @@ export function BatchDetail() {
                           </option>
                         ))}
                       </select>
+                      <input
+                        className="input py-1 text-sm mt-1"
+                        list="designation-options-edit"
+                        placeholder="Designation (optional)"
+                        maxLength={100}
+                        value={editState.designation}
+                        onChange={(e) => setEditState({ ...editState, designation: e.target.value })}
+                      />
+                      <datalist id="designation-options-edit">
+                        {designationOptions.map((d) => <option key={d} value={d} />)}
+                      </datalist>
                     </td>
                     <td>
                       <select
@@ -789,7 +884,10 @@ export function BatchDetail() {
                       </div>
                     </td>
                     <td className="text-gray-500">{o.donorCongregation ?? '—'}</td>
-                    <td>{o.categoryName}</td>
+                    <td>
+                      {o.categoryName}
+                      {o.designation && <div className="text-xs text-gray-500">for {o.designation}</div>}
+                    </td>
                     <td>
                       <span className="badge-gray">{paymentMethodLabel(o.paymentMethod)}</span>
                     </td>

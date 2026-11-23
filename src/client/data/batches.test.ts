@@ -85,4 +85,26 @@ describe('batches and offerings', () => {
     expect(O.listOfferings(db, { startDate: '2026-01-15' }).map((o) => o.amount)).toEqual([2]);
     expect(O.listOfferings(db, { donorId: String(donorId), endDate: '2026-01-31' }).map((o) => o.amount)).toEqual([1]);
   });
+
+  it('stores designations (trimmed, blank = none) and suggests them by use', () => {
+    const b = B.createBatch(db, { date: '2026-01-04' });
+    const o1 = O.createOffering(db, { batchId: b.id, donorId, categoryId: catId, amount: 10, paymentMethod: 'cash', designation: '  Smith ' });
+    O.createOffering(db, { batchId: b.id, donorId, categoryId: catId, amount: 10, paymentMethod: 'cash', designation: 'Smith' });
+    O.createOffering(db, { batchId: b.id, donorId, categoryId: catId, amount: 10, paymentMethod: 'cash', designation: 'Adams' });
+    const o4 = O.createOffering(db, { batchId: b.id, donorId, categoryId: catId, amount: 10, paymentMethod: 'cash', designation: '   ' });
+    expect(o1.designation).toBe('Smith');
+    expect(o4.designation).toBeNull();
+    expect(O.listDesignations(db)).toEqual(['Smith', 'Adams']);
+    expect(O.updateOffering(db, o1.id, { designation: '' })!.designation).toBeNull();
+    expect(O.updateOffering(db, o4.id, { amount: 20 })!.designation).toBeNull();
+  });
+
+  it('records attendance on a batch, open or closed', () => {
+    const b = B.createBatch(db, { date: '2026-01-04' });
+    B.closeBatch(db, b.id);
+    expect(B.updateBatch(db, b.id, { attendanceAdults: '85', attendanceChildren: 20 })).toMatchObject({ attendanceAdults: 85, attendanceChildren: 20 });
+    expect(B.updateBatch(db, b.id, { attendanceChildren: '' }).attendanceChildren).toBeNull();
+    expect(() => B.updateBatch(db, b.id, { attendanceAdults: -1 })).toThrow('whole number');
+    expect(() => B.updateBatch(db, b.id, { attendanceAdults: 2.5 })).toThrow('whole number');
+  });
 });
