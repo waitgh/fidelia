@@ -12,7 +12,9 @@ import {
   ClipboardList,
   PanelLeftClose,
   PanelLeftOpen,
+  CircleHelp,
 } from 'lucide-react';
+import { FAQ_URL, GUIDE_URL } from '../lib/links';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
@@ -128,6 +130,15 @@ export function Layout({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
+        {/* ── Help: opens in a new tab so this session stays open ── */}
+        <div className="px-2 pb-2">
+          <a href={FAQ_URL} target="_blank" rel="noopener noreferrer" title={collapsed ? 'Help' : undefined}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:bg-primary-800 hover:text-white transition-colors">
+            <CircleHelp className="h-4 w-4 shrink-0" />
+            {!collapsed && 'Help'}
+          </a>
+        </div>
+
         {/* ── User footer ── */}
         <div className="px-2 py-3 border-t border-white/10">
           {user && (
@@ -151,6 +162,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {!collapsed && (
             <p className="mt-2 text-[10px] text-primary-700">
               v{__APP_VERSION__}
+              <a href={GUIDE_URL} target="_blank" rel="noopener noreferrer" className="ml-2 text-primary-400 hover:text-primary-200 underline">User guide</a>
               <StayInTouchLink className="ml-2 text-primary-400 hover:text-primary-200 underline">Stay in touch</StayInTouchLink>
             </p>
           )}

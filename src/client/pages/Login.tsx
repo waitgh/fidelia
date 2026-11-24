@@ -10,6 +10,7 @@ import { LocalFileAdapter } from '../storage/localFile';
 import type { StorageAdapter } from '../storage/types';
 import { seedDemo } from '../data/seed';
 import { StayInTouchLink } from '../components/StayInTouch';
+import { ABOUT_URL, FAQ_URL, GUIDE_URL } from '../lib/links';
 import { getRecent, setRecent, type RecentChurch } from '../storage/recent';
 import { GoogleDriveAdapter } from '../storage/googleDrive';
 import { DropboxAdapter, dropboxAppKey, hasDropboxSession, startDropboxSignIn, switchDropboxAccount, completeDropboxSignIn, joinPath, parentOf } from '../storage/dropbox';
@@ -77,6 +78,12 @@ function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-xl p-7 space-y-5">{children}</div>
+        <nav className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-primary-200 print:hidden">
+          <a href={ABOUT_URL} className="hover:text-white">About</a>
+          <a href={FAQ_URL} className="hover:text-white">FAQ</a>
+          <a href={GUIDE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white">User guide</a>
+          <StayInTouchLink className="hover:text-white">Stay in touch</StayInTouchLink>
+        </nav>
       </div>
     </div>
   );
@@ -372,11 +379,6 @@ export function Login() {
           Just looking? Try the demo
         </button>
         <p className="text-xs text-gray-400 text-center">Your church data is encrypted in this browser. The people who run this website cannot read it.</p>
-        <p className="text-xs text-center">
-          <a href="/about" className="text-primary-600 hover:underline">What is Fidelia?</a>
-          <span className="text-gray-300"> · </span>
-          <StayInTouchLink className="text-primary-600 hover:underline">Stay in touch</StayInTouchLink>
-        </p>
       </Shell>
     );
   }
