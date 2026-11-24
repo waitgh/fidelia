@@ -9,6 +9,7 @@ import { MemoryAdapter } from '../storage/memory';
 import { LocalFileAdapter } from '../storage/localFile';
 import type { StorageAdapter } from '../storage/types';
 import { seedDemo } from '../data/seed';
+import { StayInTouchLink } from '../components/StayInTouch';
 import { getRecent, setRecent, type RecentChurch } from '../storage/recent';
 import { GoogleDriveAdapter } from '../storage/googleDrive';
 import { DropboxAdapter, dropboxAppKey, hasDropboxSession, startDropboxSignIn, switchDropboxAccount, completeDropboxSignIn, joinPath, parentOf } from '../storage/dropbox';
@@ -360,6 +361,7 @@ export function Login() {
           Just looking? Try the demo
         </button>
         <p className="text-xs text-gray-400 text-center">Your church data is encrypted in this browser. The people who run this website cannot read it.</p>
+        <StayInTouchLink className="block text-xs text-primary-600 hover:underline text-center">Using Fidelia at your church? Stay in touch</StayInTouchLink>
       </Shell>
     );
   }

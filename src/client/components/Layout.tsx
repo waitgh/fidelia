@@ -16,6 +16,7 @@ import {
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useAuth } from '../lib/auth';
+import { StayInTouchLink } from './StayInTouch';
 import { useSettings } from '../lib/settings.js';
 import { LogoMark } from './Logo.js';
 
@@ -148,7 +149,10 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           )}
           {!collapsed && (
-            <p className="mt-2 text-[10px] text-primary-700">v{__APP_VERSION__}</p>
+            <p className="mt-2 text-[10px] text-primary-700">
+              v{__APP_VERSION__}
+              <StayInTouchLink className="ml-2 text-primary-400 hover:text-primary-200 underline">Stay in touch</StayInTouchLink>
+            </p>
           )}
         </div>
       </aside>

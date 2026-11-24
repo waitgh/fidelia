@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import { formatCurrency, formatDate } from '../lib/formatters.js';
 import { TrendingUp, Users, Calendar, DollarSign } from 'lucide-react';
+import { useAuth } from '../lib/auth.js';
+import { StayInTouchCard } from '../components/StayInTouch.js';
 
 interface DashboardData {
   yearlyTotal: number;
@@ -27,6 +29,7 @@ interface DashboardData {
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     api.reports
@@ -47,6 +50,8 @@ export function Dashboard() {
       <div className="page-header">
         <h1 className="page-title">Dashboard</h1>
       </div>
+
+      {user?.role === 'admin' && user.username !== 'demo' && <StayInTouchCard />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="stat-card">
