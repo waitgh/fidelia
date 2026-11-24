@@ -51,3 +51,9 @@ public/     _headers (CSP), _redirects, oauth-callback page
 
 `npm run dev:phone` serves the app over HTTPS on your local network at port 5174. It uses a self-signed certificate, because Web Crypto only works on secure pages. Open `https://<ip-with-dashes>.nip.io:5174` on the phone (for example `https://192-168-86-241.nip.io:5174`) and accept the certificate warning. For Google sign-in, add that origin, and the same address with a trailing `/` as a redirect URI, to the OAuth client. Add it to the API key's allowed referrers too. Google doesn't accept bare IP addresses.
 
+
+## License
+
+[PolyForm Noncommercial 1.0.0](LICENSE). Churches, charities and other noncommercial users may use, copy and change Fidelia for free. Commercial use, including selling it or building a paid product on it, needs a separate license: contact <author>.
+
+Contributions: outside contributions are accepted only with a signed agreement that lets the author license them on the same terms, including commercially.

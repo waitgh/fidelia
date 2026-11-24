@@ -2,6 +2,7 @@
   "name": "fidelia-browser",
   "version": "0.1.0",
   "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
   "description": "Browser-only church bookkeeping: data is encrypted and decrypted in the browser and stored in the church's own cloud",
   "type": "module",
   "scripts": {

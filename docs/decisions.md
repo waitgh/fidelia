@@ -38,7 +38,7 @@ Key reasoning: whoever runs code on decrypted data can see it. So the only way t
 
 ## Open decisions (ask the author)
 
-- Public or private, and the license (MIT vs AGPL) if public.
+- ~~License~~: decided 2026-11-24, **PolyForm Noncommercial 1.0.0** (free for churches, charities and other noncommercial use; commercial use needs a separate license from the author). Still open: whether to make the repo public.
 - Default storage: church's Google Drive or Dropbox, our ciphertext-only storage, or both.
 - In-browser SQLite: `sql.js` (Drizzle has a driver) vs the official SQLite WASM build.
 - Lock and invite service: likely a Cloudflare Worker with Durable Objects; it stores no church data.
