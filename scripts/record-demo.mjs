@@ -1,9 +1,11 @@
 // Records the demo walkthrough video (public/landing/fidelia-demo.mp4) from the demo church.
 // 1. npm run build && npx vite preview --port 4173
 // 2. PY=<python with pypdfium2> node scripts/record-demo.mjs <outDir> http://localhost:4173   (add --check for step screenshots only)
-// 3. ffmpeg -f concat -safe 0 -i <outDir>/frames.txt -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x100f2a,fps=30,format=yuv420p" -c:v libx264 -preset slow -crf 23 -movflags +faststart public/landing/fidelia-demo.mp4
+// 3. Mix <outDir>/cues.json (narration clip + start time) into narr.m4a with ffmpeg adelay + amix, then: ffmpeg -f concat -safe 0 -i <outDir>/frames.txt -i narr.m4a -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x100f2a,fps=30,format=yuv420p" -c:v libx264 -preset slow -crf 23 -movflags +faststart public/landing/fidelia-demo.mp4
 // Needs Google Chrome (macOS path below) and ffmpeg. Uses only made-up demo data.
+// Narration uses the Mac's system voice (say). Set it in System Settings → Accessibility → Spoken Content (we used Siri Voice 4).
 import { spawn, execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { writeFileSync, mkdirSync, readdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
 
 const OUT = process.argv[2];
@@ -119,7 +121,26 @@ const field = async (labelText, sel) => {
   await ev(`(() => { const l = [...document.querySelectorAll('label, span')].filter((e) => e.getClientRects().length && e.childElementCount === 0 && e.textContent.trim().replace(/ \\*$/, '') === ${JSON.stringify(labelText)})[0]; window.__t = l.closest('label')?.querySelector(${JSON.stringify(sel)}) || l.parentElement.querySelector(${JSON.stringify(sel)}); })()`);
   await ev('__v.move(__t)'); await ev('__v.pulse()');
 };
-const caption = async (t, hold = 0, top = false) => { await ev(`__v.caption(${JSON.stringify(t)}, ${top})`); if (hold) await sleep(hold); };
+// ── Narration: each caption is spoken with the Mac's system voice (`say`), cached by text. ──
+mkdirSync(OUT + '/narr', { recursive: true });
+const SPOKEN = { 'Open fidelialedger.org in any web browser. Nothing to install.': 'Open fidelia ledger dot org in any web browser. Nothing to install.' };
+const cues = []; let narrEnd = 0;
+const clip = (text) => {
+  const key = createHash('sha1').update(text).digest('hex').slice(0, 12);
+  const file = `${OUT}/narr/${key}.aiff`;
+  if (!existsSync(file)) execFileSync('say', ['-o', file, text]);
+  const dur = parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file]).toString());
+  return { file, dur };
+};
+const speak = async (text) => {
+  const c = clip(text);
+  const wait = narrEnd - Date.now() / 1000;
+  if (wait > 0) await sleep(wait * 1000);
+  cues.push({ file: c.file, t: Date.now() / 1000 });
+  narrEnd = Date.now() / 1000 + c.dur + 0.4;
+};
+const waitNarration = async () => { const w = narrEnd - Date.now() / 1000; if (w > 0) await sleep(w * 1000); };
+const caption = async (t, hold = 0, top = false) => { if (t) await speak(SPOKEN[t] ?? t); await ev(`__v.caption(${JSON.stringify(t)}, ${top})`); if (hold) await sleep(hold); };
 
 // ── Start ──
 await send('Page.enable'); await send('Runtime.enable');
@@ -130,7 +151,9 @@ await sleep(3500);
 await inject();
 await ev(`__v.card('<img src="/favicon.svg" style="width:84px;height:84px;border-radius:18px"><div style="font:700 54px Georgia,serif">Fidelia Ledger</div><div style="font:400 26px system-ui;color:#c0c8fe">Counting a Sunday offering, start to finish</div>')`);
 if (!CHECK) await send('Page.startScreencast', { format: 'jpeg', quality: 88, maxWidth: W * DSF, maxHeight: H * DSF, everyNthFrame: 1 });
-await sleep(3500);
+await sleep(600);
+await speak('Fidelia Ledger. Counting a Sunday offering, start to finish.');
+await waitNarration();
 await check('title');
 await ev(`__v.card('')`);
 await sleep(700);
@@ -236,7 +259,10 @@ await check('statement');
 await caption('');
 await ev(`__v.cursor(false)`);
 await ev(`__v.card('<div style="font:700 46px Georgia,serif">Free for small churches</div><div style="font:400 24px system-ui;color:#c0c8fe;max-width:820px;line-height:1.45">Your records stay in your church’s own Dropbox, encrypted.<br>Only your church can read them.</div><div style="margin-top:18px;font:700 34px system-ui;color:#EBC76A">fidelialedger.org</div>')`);
-await sleep(5000);
+await sleep(500);
+await speak('Fidelia Ledger is free for small churches. Your records stay in your church’s own Dropbox, encrypted, and only your church can read them. Visit fidelia ledger dot org.');
+await waitNarration();
+await sleep(800);
 await check('end');
 
 if (!CHECK) {
@@ -250,6 +276,8 @@ if (!CHECK) {
   }
   lines.push(`file 'frames/f${String(frames.length - 1).padStart(5, '0')}.jpg'`);
   writeFileSync(OUT + '/frames.txt', lines.join('\n') + '\n');
+  writeFileSync(OUT + '/cues.json', JSON.stringify(cues.map((c) => ({ file: c.file, at: +(c.t - frames[0]).toFixed(3) }))));
+  console.log('clock check (now - last frame ts):', (Date.now() / 1000 - frames[frames.length - 1]).toFixed(2));
   console.log('frames', frames.length, 'seconds', (end - frames[0]).toFixed(1));
 }
 ws.close(); chrome.kill(); process.exit(0);
