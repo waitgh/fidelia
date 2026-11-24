@@ -32,7 +32,7 @@ Key reasoning: whoever runs code on decrypted data can see it. So the only way t
 
 ## Repos
 
-- **This repo** (`waitgh/fidelia-browser`, private on GitHub): the rewrite. Fresh history, started from a copy of the old frontend, shared types, and schema/migrations (up to `0010`).
+- **This repo** (`waitgh/fidelia` on GitHub, formerly `fidelia-browser`): the rewrite. Fresh history, started from a copy of the old frontend, shared types, and schema/migrations (up to `0010`).
 - **Old repo**: the old server app (private). Express + SQLite + rclone. It is still the first church's production app, run under PM2 on port 3000. It is in **maintenance only** (bug fixes, no new features). Use it as the reference for business logic in `src/server/routes/`, `src/server/lib/statementTotals.ts`, and `src/server/lib/graphMail.ts`. Don't modify it from here.
 - Remote uses HTTPS through the `gh` CLI login (account `waitgh`). Repo-local git author: <author>.
 
