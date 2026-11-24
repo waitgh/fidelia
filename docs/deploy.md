@@ -16,7 +16,7 @@ The app is static files. There is no server to run and nothing that stores churc
 2. Permissions tab: `files.metadata.read`, `files.content.read`, `files.content.write`. Submit.
 3. Settings tab → OAuth 2 redirect URIs: `https://<your-site>/` and `http://localhost:5173/`.
 4. Set `VITE_DROPBOX_APP_KEY` (the App key; never the App secret, which the site doesn't use) in Cloudflare Pages and `.env.local`.
-5. A new app is in development status: at most 50 Dropbox accounts, across all churches. Before a wide release, apply for **production** in the app console (free review; needs a working app and a privacy policy).
+5. A new app is in development status: at most 500 Dropbox accounts (one per treasurer), across all churches. The app console shows the count under "Development users". Before a wide release, apply for **production** in the app console (free review; needs a working app and a privacy policy).
 
 ## 2b. Google (hidden unless `VITE_ENABLE_GOOGLE=1`)
 
