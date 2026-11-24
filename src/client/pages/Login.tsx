@@ -338,6 +338,17 @@ export function Login() {
     enter(church);
   });
 
+  // "Try the demo" links on the About/FAQ pages open /?demo. Drop the flag from the address
+  // first (so StrictMode's second run and a later refresh don't start it again), then start.
+  useEffect(() => {
+    const url = new URL(location.href);
+    if (!url.searchParams.has('demo')) return;
+    url.searchParams.delete('demo');
+    history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+    startDemo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (step.s === 'start') {
     return (
       <Shell>
@@ -361,7 +372,11 @@ export function Login() {
           Just looking? Try the demo
         </button>
         <p className="text-xs text-gray-400 text-center">Your church data is encrypted in this browser. The people who run this website cannot read it.</p>
-        <StayInTouchLink className="block text-xs text-primary-600 hover:underline text-center">Using Fidelia at your church? Stay in touch</StayInTouchLink>
+        <p className="text-xs text-center">
+          <a href="/about" className="text-primary-600 hover:underline">What is Fidelia?</a>
+          <span className="text-gray-300"> · </span>
+          <StayInTouchLink className="text-primary-600 hover:underline">Stay in touch</StayInTouchLink>
+        </p>
       </Shell>
     );
   }

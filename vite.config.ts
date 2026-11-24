@@ -27,7 +27,9 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       // drive-picker.html is a separate page so Google's Picker script never runs next to church data.
-      input: { main: path.resolve(__dirname, 'index.html'), picker: path.resolve(__dirname, 'drive-picker.html') },
+      input: { main: path.resolve(__dirname, 'index.html'), picker: path.resolve(__dirname, 'drive-picker.html'),
+        // Public About and FAQ pages: plain HTML + CSS, no app code.
+        about: path.resolve(__dirname, 'about.html'), faq: path.resolve(__dirname, 'faq.html') },
     },
   },
   test: {
