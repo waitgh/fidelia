@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Mail, X } from 'lucide-react';
 
 /** The sign-up form. Empty = every Stay in touch link is hidden. */
-export const STAY_IN_TOUCH_URL = '';
+export const STAY_IN_TOUCH_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfNWz7mxc-HLiGN0RnCUhElMkmB4HmT8GoXVvdYL9PdJ03kOQ/viewform';
 
 const DISMISSED = 'fidelia.stayInTouchDismissed';
 
