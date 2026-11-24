@@ -54,6 +54,6 @@ public/     _headers (CSP), _redirects, oauth-callback page
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE). Churches, charities and other noncommercial users may use, copy and change Fidelia for free. Commercial use, including selling it or building a paid product on it, needs a separate license: contact <author>.
+[PolyForm Noncommercial 1.0.0](LICENSE). Churches, charities and other noncommercial users may use, copy and change Fidelia for free. Commercial use, including selling it or building a paid product on it, needs a separate license from the author ([waitgh](https://github.com/waitgh)).
 
 Contributions: outside contributions are accepted only with a signed agreement that lets the author license them on the same terms, including commercially.

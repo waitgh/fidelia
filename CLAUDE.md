@@ -19,14 +19,14 @@ npm run db:generate  # generate a migration after editing src/db/schema.ts
 
 ## What this project is
 
-A browser-only rewrite of Fidelia Ledger (the Express + SQLite app in the old server app). Goals:
+A browser-only rewrite of Fidelia Ledger (originally an Express + SQLite server app). Goals:
 
 - Non-technical churches use it with **no install**, on desktop or iPhone.
 - **The host never holds or can read church data.** All decryption happens in the browser.
 - The encrypted database lives in the **church's own cloud storage** (Google Drive, Dropbox), or optionally as ciphertext on our storage.
 - Hosting is static files (e.g. Cloudflare Pages), plus a tiny service for edit locks and invites that stores **no church data**.
 
-The old server code is the reference for business logic. Port it from `the old server app's routes`; don't copy the Express/JWT/rclone architecture.
+The old server app (private, kept outside this repo) was the reference for business logic; don't bring back its Express/JWT/rclone architecture.
 
 ## Architecture (target)
 

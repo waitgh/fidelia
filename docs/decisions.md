@@ -7,7 +7,7 @@ How this project came about, what was decided, and what's next. Written at the e
 - The author is a volunteer who built Fidelia Ledger for their own church.
 - Goal: offer it to **other local churches first**, with **non-technical** treasurers and bookkeepers as users.
 - The author does **not** want to run a business or do heavy support. They also do **not** want custody of other churches' data, and ideally can't read it.
-- the first church will be the first user of the new version and needs a migration path from the old app.
+- The author's church will be the first user of the new version and needs a migration path from the old app.
 
 ## How we got here
 
@@ -33,17 +33,16 @@ Key reasoning: whoever runs code on decrypted data can see it. So the only way t
 ## Repos
 
 - **This repo** (`waitgh/fidelia` on GitHub, formerly `fidelia-browser`): the rewrite. Fresh history, started from a copy of the old frontend, shared types, and schema/migrations (up to `0010`).
-- **Old repo**: the old server app (private). Express + SQLite + rclone. It is still the first church's production app, run under PM2 on port 3000. It is in **maintenance only** (bug fixes, no new features). Use it as the reference for business logic in `src/server/routes/`, `src/server/lib/statementTotals.ts`, and `src/server/lib/graphMail.ts`. Don't modify it from here.
-- Remote uses HTTPS through the `gh` CLI login (account `waitgh`). Repo-local git author: <author>.
+- **Old app** (private, not needed to build this one): the original Express + SQLite + rclone version of Fidelia Ledger, in maintenance only. It was the reference for business logic in `src/server/routes/`, `src/server/lib/statementTotals.ts`, and `src/server/lib/graphMail.ts`.
 
 ## Open decisions (ask the author)
 
-- ~~License~~: decided 2026-11-24, **PolyForm Noncommercial 1.0.0** (free for churches, charities and other noncommercial use; commercial use needs a separate license from the author). Still open: whether to make the repo public.
+- ~~License~~: decided 2026-11-24, **PolyForm Noncommercial 1.0.0** (free for churches, charities and other noncommercial use; commercial use needs a separate license from the author). The repo is public.
 - Default storage: church's Google Drive or Dropbox, our ciphertext-only storage, or both.
 - In-browser SQLite: `sql.js` (Drizzle has a driver) vs the official SQLite WASM build.
 - Lock and invite service: likely a Cloudflare Worker with Durable Objects; it stores no church data.
 - Static hosting: likely Cloudflare Pages, with preview deploys per branch as staging.
-- Encrypted file format, and how importing an old the first church database works. The old app encrypts at the SQLite level with SQLite3MultipleCiphers via `DB_ENCRYPTION_KEY`, plus an AES-256-GCM layer for cloud sync .
+- Encrypted file format, and how importing a database from the old app works. The old app encrypts at the SQLite level with SQLite3MultipleCiphers via `DB_ENCRYPTION_KEY`, plus an AES-256-GCM layer for cloud sync.
 
 ## Next steps (suggested order)
 
@@ -53,8 +52,6 @@ Key reasoning: whoever runs code on decrypted data can see it. So the only way t
 4. Port behind `src/client/lib/api.ts` one area at a time: categories → donors → batches and offerings → pledges → reports and statements.
 5. Then: envelope encryption and recovery kit, autosave with integrity check and previous versions, edit lock, invites, Google Drive and Dropbox adapters, sending email from the browser through the treasurer's own account, and importing an old database.
 
-## Environment notes about the author
+## Notes
 
-- Their Chrome won't open file-picker dialogs. When testing uploads in the browser, use drag-and-drop.
-- They prefer not to be asked for confirmation before running commands.
 - Dependency advisories resolved 2026-11-06 (removed unused `xlsx`, upgraded drizzle-orm 0.45 and react-router 7). `npm audit --omit=dev` is clean.
