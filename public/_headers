@@ -17,5 +17,11 @@
   Referrer-Policy: strict-origin
   Content-Security-Policy: default-src 'self'; script-src 'self' https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://www.googleapis.com https://content.googleapis.com; frame-src https://docs.google.com https://drive.google.com https://accounts.google.com https://content.googleapis.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
 
+# Chrome's built-in PDF viewer is blocked by the app's CSP (object-src 'none'), so the guide gets none.
+# It is a static PDF with no scripts and never holds church data.
+/Fidelia-User-Guide.pdf
+  ! Content-Security-Policy
+  Content-Disposition: inline; filename="Fidelia-User-Guide.pdf"
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
