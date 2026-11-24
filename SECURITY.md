@@ -29,4 +29,4 @@ Anything that could let someone who isn't a church member read or change church 
 
 ## Supported versions
 
-Only the version running at https://fidelia.pages.dev, which is built from the `main` branch.
+Only the version running at https://fidelialedger.org, which is built from the `main` branch.

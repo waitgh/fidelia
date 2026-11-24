@@ -33,7 +33,7 @@ GOLD = colors.HexColor('#b8860b')
 SOFT = colors.HexColor('#eef0fb')
 WARN = colors.HexColor('#fff6dd')
 GREY = colors.HexColor('#5b5b6b')
-SITE = 'https://fidelia.pages.dev'
+SITE = 'https://fidelialedger.org'
 
 body = ParagraphStyle('body', fontName='Body', fontSize=11.5, leading=16.5, textColor=INK, spaceAfter=6)
 small = ParagraphStyle('small', parent=body, fontSize=9.5, leading=13, textColor=GREY)
@@ -120,7 +120,7 @@ def cover(c, doc):
     c.drawCentredString(letter[0] / 2, 4.2 * inch, SITE.replace('https://', ''))
     c.setFillColor(colors.HexColor('#c9c8ee'))
     c.setFont('Body', 10.5)
-    c.drawCentredString(letter[0] / 2, 3.8 * inch, 'New address. If you saved the old one (fidelia-browser.pages.dev), update your bookmark.')
+    c.drawCentredString(letter[0] / 2, 3.8 * inch, 'New address. Old bookmarks (fidelia.pages.dev) still forward here.')
     c.restoreState()
 
 
