@@ -1,7 +1,7 @@
 // Welcome screen: sign in, or create a church account (and choose where its data lives).
 // Everything happens in this browser; nothing is sent to a server.
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Loader2, AlertCircle, FolderOpen, KeyRound, Printer, Cloud, FileLock2, LogIn, UserPlus, HardDrive } from 'lucide-react';
+import { Lock, Loader2, AlertCircle, FolderOpen, KeyRound, Printer, Cloud, FileLock2, LogIn, UserPlus, HardDrive } from 'lucide-react';
 import { useAuth } from '../lib/auth.js';
 import { LogoMark } from '../components/Logo.js';
 import { Church } from '../church/church';
@@ -64,11 +64,11 @@ const PENDING_CREATE = 'fidelia.pendingCreate';
 type Folder = { id: string; name: string };
 type PendingCreate = { churchName: string; displayName: string; username: string; where: Where; driveFolder: string; driveFileName: string; dropboxPath: string; pickedFolder: Folder | null };
 
-function Shell({ children }: { children: ReactNode }) {
+function Shell({ children, intro }: { children: ReactNode; intro?: boolean }) {
   return (
     <div className="min-h-screen bg-primary-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="flex flex-col items-center mb-8 gap-3 print:hidden">
+        <div className={`flex flex-col items-center gap-3 print:hidden ${intro ? 'mb-6' : 'mb-8'}`}>
           <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center shadow-lg">
             <LogoMark size={40} />
           </div>
@@ -76,6 +76,16 @@ function Shell({ children }: { children: ReactNode }) {
             <span className="text-2xl font-bold text-white tracking-tight" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>Fidelia</span>
             <span className="text-xl font-light text-yellow-300 tracking-wide" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>Ledger</span>
           </div>
+          {intro && (
+            <div className="mt-3 text-center">
+              <p className="text-2xl sm:text-[1.7rem] font-bold text-white leading-snug [text-wrap:balance]">Offering and donor records for your church</p>
+              <p className="mt-3 text-primary-100 leading-relaxed [text-wrap:balance]">
+                <Lock className="inline h-4 w-4 -mt-1 mr-1.5 text-yellow-300" />
+                Encrypted on your own computer and kept in your church’s own Dropbox. <strong className="text-white">We never see your data.</strong>
+              </p>
+              <p className="mt-2 text-sm text-primary-300">Free · Nothing to install · <a href={ABOUT_URL} className="text-yellow-300 hover:text-yellow-200 underline-offset-2 hover:underline">See how it works →</a></p>
+            </div>
+          )}
         </div>
         <div className="bg-white rounded-2xl shadow-xl p-7 space-y-5">{children}</div>
         <nav className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-primary-200 print:hidden">
@@ -358,7 +368,7 @@ export function Login() {
 
   if (step.s === 'start') {
     return (
-      <Shell>
+      <Shell intro>
         <Title>Welcome</Title>
         <ErrorBox error={a.error} />
         <button type="button" className="btn-primary w-full py-2.5" disabled={a.busy}
@@ -378,7 +388,6 @@ export function Login() {
         <button type="button" className="text-sm text-primary-600 hover:underline w-full text-center" disabled={a.busy} onClick={startDemo}>
           Just looking? Try the demo
         </button>
-        <p className="text-xs text-gray-400 text-center">Your church data is encrypted in this browser. The people who run this website cannot read it.</p>
       </Shell>
     );
   }

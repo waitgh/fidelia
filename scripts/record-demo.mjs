@@ -258,9 +258,9 @@ await check('statement');
 
 await caption('');
 await ev(`__v.cursor(false)`);
-await ev(`__v.card('<div style="font:700 46px Georgia,serif">Free for small churches</div><div style="font:400 24px system-ui;color:#c0c8fe;max-width:820px;line-height:1.45">Your records stay in your church’s own Dropbox, encrypted.<br>Only your church can read them.</div><div style="margin-top:18px;font:700 34px system-ui;color:#EBC76A">fidelialedger.org</div>')`);
+await ev(`__v.card('<div style="font:700 46px Georgia,serif">Your data stays with you</div><div style="font:400 24px system-ui;color:#c0c8fe;max-width:820px;line-height:1.45">Encrypted on your own computer and kept in your church’s own Dropbox.<br>We never see it. Free for churches.</div><div style="margin-top:18px;font:700 34px system-ui;color:#EBC76A">fidelialedger.org</div>')`);
 await sleep(500);
-await speak('Fidelia Ledger is free for small churches. Your records stay in your church’s own Dropbox, encrypted, and only your church can read them. Visit fidelia ledger dot org.');
+await speak('With Fidelia Ledger, your data stays with you. It is encrypted on your own computer and kept in your church’s own Dropbox. We never see it. And it is free for churches. Visit fidelia ledger dot org.');
 await waitNarration();
 await sleep(800);
 await check('end');
