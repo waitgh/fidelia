@@ -1,7 +1,7 @@
 // Welcome screen: sign in, or create a church account (and choose where its data lives).
 // Everything happens in this browser; nothing is sent to a server.
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Lock, Loader2, AlertCircle, FolderOpen, KeyRound, Printer, Cloud, FileLock2, LogIn, UserPlus, HardDrive } from 'lucide-react';
+import { Lock, EyeOff, Loader2, AlertCircle, FolderOpen, KeyRound, Printer, Cloud, FileLock2, LogIn, UserPlus, HardDrive } from 'lucide-react';
 import { useAuth } from '../lib/auth.js';
 import { LogoMark } from '../components/Logo.js';
 import { Church } from '../church/church';
@@ -64,36 +64,82 @@ const PENDING_CREATE = 'fidelia.pendingCreate';
 type Folder = { id: string; name: string };
 type PendingCreate = { churchName: string; displayName: string; username: string; where: Where; driveFolder: string; driveFileName: string; dropboxPath: string; pickedFolder: Folder | null };
 
+const SERIF = { fontFamily: '"Playfair Display", Georgia, serif' };
+
+function Wordmark({ big }: { big?: boolean }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className={`font-bold text-white tracking-tight ${big ? 'text-[2.5rem] sm:text-6xl' : 'text-2xl'}`} style={SERIF}>Fidelia</span>
+      <span className={`font-light text-yellow-300 tracking-wide ${big ? 'text-[2rem] sm:text-5xl' : 'text-xl'}`}>Ledger</span>
+    </div>
+  );
+}
+
+const FooterLinks = () => (
+  <nav className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-primary-200 print:hidden">
+    <a href={ABOUT_URL} className="hover:text-white">About</a>
+    <a href={FAQ_URL} className="hover:text-white">FAQ</a>
+    <a href={GUIDE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white">User guide</a>
+    <StayInTouchLink className="hover:text-white">Stay in touch</StayInTouchLink>
+  </nav>
+);
+
+const PROMISES: { icon: ReactNode; text: ReactNode }[] = [
+  { icon: <Lock className="h-4 w-4" />, text: <>Encrypted on your own computer</> },
+  { icon: <Cloud className="h-4 w-4" />, text: <>Kept in your church’s own Dropbox</> },
+  { icon: <EyeOff className="h-4 w-4" />, text: <strong className="font-semibold text-white">We never see your data</strong> },
+];
+
+/** First screen: the brand and what Fidelia is beside the card (stacked on phones). */
+function IntroShell({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-primary-950 flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md lg:max-w-5xl grid lg:grid-cols-[1fr_28rem] gap-10 lg:gap-16 items-center">
+        <div className="flex flex-col items-center text-center lg:items-start lg:text-left print:hidden">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white/10 flex items-center justify-center shadow-lg shrink-0">
+              <LogoMark size={40} />
+            </div>
+            <Wordmark big />
+          </div>
+          <p className="mt-6 text-xl sm:text-2xl text-primary-100 leading-snug [text-wrap:balance]">
+            Offering and donor records for your church.
+          </p>
+          <ul className="mt-6 space-y-3 text-left">
+            {PROMISES.map((p, i) => (
+              <li key={i} className="flex items-center gap-3 text-primary-100">
+                <span className="w-8 h-8 rounded-full bg-yellow-300/15 text-yellow-300 flex items-center justify-center shrink-0">{p.icon}</span>
+                <span>{p.text}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 text-sm text-primary-300">
+            Free for churches · Nothing to install ·{' '}
+            <a href={ABOUT_URL} className="whitespace-nowrap text-yellow-300 hover:text-yellow-200 hover:underline underline-offset-2">See how it works →</a>
+          </p>
+        </div>
+        <div>
+          <div className="bg-white rounded-2xl shadow-xl p-7 space-y-5">{children}</div>
+          <FooterLinks />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Shell({ children, intro }: { children: ReactNode; intro?: boolean }) {
+  if (intro) return <IntroShell>{children}</IntroShell>;
   return (
     <div className="min-h-screen bg-primary-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className={`flex flex-col items-center gap-3 print:hidden ${intro ? 'mb-6' : 'mb-8'}`}>
+        <div className="flex flex-col items-center mb-8 gap-3 print:hidden">
           <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center shadow-lg">
             <LogoMark size={40} />
           </div>
-          <div className="flex items-baseline justify-center gap-2">
-            <span className="text-2xl font-bold text-white tracking-tight" style={{ fontFamily: '"Playfair Display", Georgia, serif' }}>Fidelia</span>
-            <span className="text-xl font-light text-yellow-300 tracking-wide" style={{ fontFamily: '"DM Sans", system-ui, sans-serif' }}>Ledger</span>
-          </div>
-          {intro && (
-            <div className="mt-3 text-center">
-              <p className="text-2xl sm:text-[1.7rem] font-bold text-white leading-snug [text-wrap:balance]">Offering and donor records for your church</p>
-              <p className="mt-3 text-primary-100 leading-relaxed [text-wrap:balance]">
-                <Lock className="inline h-4 w-4 -mt-1 mr-1.5 text-yellow-300" />
-                Encrypted on your own computer and kept in your church’s own Dropbox. <strong className="text-white">We never see your data.</strong>
-              </p>
-              <p className="mt-2 text-sm text-primary-300">Free · Nothing to install · <a href={ABOUT_URL} className="text-yellow-300 hover:text-yellow-200 underline-offset-2 hover:underline">See how it works →</a></p>
-            </div>
-          )}
+          <Wordmark />
         </div>
         <div className="bg-white rounded-2xl shadow-xl p-7 space-y-5">{children}</div>
-        <nav className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm text-primary-200 print:hidden">
-          <a href={ABOUT_URL} className="hover:text-white">About</a>
-          <a href={FAQ_URL} className="hover:text-white">FAQ</a>
-          <a href={GUIDE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-white">User guide</a>
-          <StayInTouchLink className="hover:text-white">Stay in touch</StayInTouchLink>
-        </nav>
+        <FooterLinks />
       </div>
     </div>
   );

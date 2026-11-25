@@ -1,8 +1,8 @@
 // Records the demo walkthrough video (src/landing/fidelia-demo.mp4) from the demo church.
 // 1. npm run build && npx vite preview --port 4173
-// 2. PY=<python with pypdfium2> node scripts/record-demo.mjs <outDir> http://localhost:4173   (add --check for step screenshots only)
+// 2. PY=<python with pypdfium2> caffeinate -dimsu node scripts/record-demo.mjs <outDir> http://localhost:4173   (add --check for step screenshots only)
 // 3. Mix <outDir>/cues.json (narration clip + start time) into narr.m4a with ffmpeg adelay + amix, then: ffmpeg -f concat -safe 0 -i <outDir>/frames.txt -i narr.m4a -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x100f2a,fps=30,format=yuv420p" -c:v libx264 -preset slow -crf 23 -movflags +faststart src/landing/fidelia-demo.mp4
-// Needs Google Chrome (macOS path below) and ffmpeg. Uses only made-up demo data.
+// Needs Google Chrome (macOS path below) and ffmpeg. Uses only made-up demo data. Keep the screen unlocked while it records (a locked screen stops the headless browser drawing).
 // Narration uses the Mac's system voice (say). Set it in System Settings → Accessibility → Spoken Content (we used Siri Voice 4).
 import { spawn, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
