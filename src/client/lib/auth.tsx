@@ -1,6 +1,7 @@
 // Church session provider. Keeps the old `useAuth()` shape so pages need few changes,
 // but "logging in" now means unlocking an encrypted church file in this browser.
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Church, type SaveState } from '../church/church';
 import { onDirty, setReadOnlyCheck, setSession, setUserName } from '../data/session';
 import { AuthExpiredError, GoogleDriveAdapter } from '../storage/googleDrive';
@@ -45,6 +46,7 @@ const adapterFor: AdapterFor = async ({ kind, ref, name, handle }) => {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [church, setChurch] = useState<Church | null>(null);
   const [saveState, setSaveState] = useState<SaveState>('saved');
   const [loggingOut, setLoggingOut] = useState(false);
@@ -129,7 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setChurch(null);
     setLoggingOut(false);
-  }, [church]);
+    // Signed out on /audit etc.: start again from the front page, not the old address.
+    navigate('/', { replace: true });
+  }, [church, navigate]);
   useEffect(() => { logoutRef.current = logout; }, [logout]);
 
   // Idle sign-out: decrypted data should not sit open on an unattended screen.

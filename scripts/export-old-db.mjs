@@ -17,7 +17,7 @@ if (!src || !out) {
   process.exit(1);
 }
 if (existsSync(out)) { console.error(`${out} already exists`); process.exit(1); }
-const oldRepo = process.env.OLD_REPO ?? path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../old-app');
+const oldRepo = process.env.OLD_REPO ? path.resolve(process.env.OLD_REPO) : path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../old-app');
 const Database = createRequire(path.join(oldRepo, 'package.json'))('better-sqlite3');
 
 const db = new Database(out); // plain
