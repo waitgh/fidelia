@@ -1,5 +1,6 @@
 // Send mail as the signed-in Gmail / Google Workspace user (gmail.send scope), in a popup.
 import type { Mailer, OutgoingMail } from './types';
+import { ThrottledError, isThrottleStatus, retryAfterMs } from './pacing';
 import { callbackUrl, oauthPopup } from './oauthPopup';
 import { googleClientId } from '../storage/googleAuth';
 
@@ -69,6 +70,7 @@ export class GmailMailer implements Mailer {
       headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ raw }),
     });
+    if (isThrottleStatus(res.status)) throw new ThrottledError(retryAfterMs(res.headers.get('Retry-After')), 'Gmail');
     if (!res.ok) {
       const j = await res.json().catch(() => null);
       throw new Error(`Gmail: ${j?.error?.message ?? res.statusText}`);

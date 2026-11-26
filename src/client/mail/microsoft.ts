@@ -1,6 +1,7 @@
 // Send mail as the signed-in Microsoft 365 user via Graph (/me/sendMail).
 // OAuth: authorization code + PKCE (SPA platform, no client secret), in a popup.
 import type { Mailer, OutgoingMail } from './types';
+import { ThrottledError, isThrottleStatus, retryAfterMs } from './pacing';
 import { callbackUrl, oauthPopup, pkcePair } from './oauthPopup';
 
 const AUTHORITY = 'https://login.microsoftonline.com/common/oauth2/v2.0';
@@ -74,6 +75,7 @@ export class MicrosoftMailer implements Mailer {
       headers: { Authorization: `Bearer ${await this.accessToken()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(graphMessage(mail)),
     });
+    if (isThrottleStatus(res.status)) throw new ThrottledError(retryAfterMs(res.headers.get('Retry-After')), 'Microsoft 365');
     if (!res.ok) {
       const j = await res.json().catch(() => null);
       throw new Error(`Microsoft 365: ${j?.error?.message ?? res.statusText}`);

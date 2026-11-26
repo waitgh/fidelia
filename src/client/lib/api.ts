@@ -2,6 +2,7 @@ import type { StatementEmailConfig, StatementEmailRecipient } from '../../shared
 
 import { assertWritable, getDb, getUserName, markDirty } from '../data/session';
 import { getMailer } from '../mail/types';
+import { ThrottledError } from '../mail/pacing';
 import * as statementEmailsData from '../data/statementEmails';
 import type { AppDb } from '../data/db';
 import * as categoriesData from '../data/categories';
@@ -130,6 +131,7 @@ export const api = {
         }
         return { ok: true, status, to: prep.to };
       } catch (e) {
+        if (e instanceof ThrottledError) throw e; // not a failure: the caller waits and retries
         const message = e instanceof Error ? e.message : 'Send failed';
         if (!prep.isTest) {
           statementEmailsData.recordAttempt(db, { ...attempt, status: 'failed', error: message });

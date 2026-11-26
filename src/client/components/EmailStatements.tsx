@@ -3,6 +3,7 @@ import { setMailer } from '../mail/types';
 import { MicrosoftMailer, msClientId } from '../mail/microsoft';
 import { GmailMailer } from '../mail/gmail';
 import { SignInRestartedError } from '../mail/oauthPopup';
+import { SEND_GAP_MS, STOP_AFTER_FAILURES_IN_A_ROW, sendPolitely } from '../mail/pacing';
 import { googleClientId } from '../storage/googleAuth';
 import { Mail, Send, X, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { api } from '../lib/api.js';
@@ -25,8 +26,6 @@ const DEFAULT_EMAIL_TEMPLATE: StatementEmailTemplate = {
     'Blessings,\n{churchName}',
 };
 
-/** Microsoft 365 allows ~30 messages/minute per mailbox; stay well under it. */
-const MIN_MS_BETWEEN_SENDS = 2500;
 const PDF_RENDER_WIDTH_PX = 1100;
 
 function fillPlaceholders(text: string, vars: Record<string, string>): string {
@@ -48,7 +47,7 @@ function pdfFilename(year: string, name: string): string {
   return `${year} Contribution Statement - ${safe || 'Donor'}.pdf`;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 interface Props {
   startDate: string;
@@ -194,30 +193,43 @@ export function EmailStatements({ startDate, endDate, template, onClose }: Props
     setRowState({});
     let done = 0;
     let failed = 0;
+    let failedInARow = 0;
+    let lastError = '';
     setProgress({ done, total: queue.length, failed });
 
     for (const r of queue) {
-      if (stopRef.current) break;
+      if (stopRef.current || failedInARow >= STOP_AFTER_FAILURES_IN_A_ROW) break;
       const started = Date.now();
       setRowState((s) => ({ ...s, [r.donorId]: 'working' }));
       try {
-        await sendOne(r);
+        await sendPolitely(() => sendOne(r), {
+          sleep,
+          shouldStop: () => stopRef.current,
+          onWait: (ms) => setNotice(`Microsoft/Google asked Fidelia to slow down. Waiting ${Math.ceil(ms / 1000)} seconds, then continuing…`),
+        });
+        setNotice('');
+        failedInARow = 0;
         setRowState((s) => ({ ...s, [r.donorId]: 'done' }));
-      } catch {
+      } catch (e) {
         failed++;
+        failedInARow++;
+        lastError = e instanceof Error ? e.message : String(e);
         setRowState((s) => ({ ...s, [r.donorId]: 'error' }));
       }
       done++;
       setProgress({ done, total: queue.length, failed });
-      const wait = MIN_MS_BETWEEN_SENDS - (Date.now() - started);
+      const wait = SEND_GAP_MS - (Date.now() - started);
       if (wait > 0 && done < queue.length && !stopRef.current) await sleep(wait);
     }
 
     setBusy('idle');
+    const gaveUp = failedInARow >= STOP_AFTER_FAILURES_IN_A_ROW && done < queue.length;
     setNotice(
-      stopRef.current
-        ? `Stopped after ${done} of ${queue.length}.`
-        : `Finished: ${done - failed} sent${failed ? `, ${failed} failed (select them and send again to retry)` : ''}.`,
+      gaveUp
+        ? `Stopped after ${done} of ${queue.length}: the last ${failedInARow} sends failed (${lastError}). Nothing more was sent. Fix the problem, then send again; donors already sent are skipped.`
+        : stopRef.current
+          ? `Stopped after ${done} of ${queue.length}.`
+          : `Finished: ${done - failed} sent${failed ? `, ${failed} failed (select them and send again to retry)` : ''}.`,
     );
     await load();
   };
