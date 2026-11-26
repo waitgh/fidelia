@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { setMailer } from '../mail/types';
 import { MicrosoftMailer, msClientId } from '../mail/microsoft';
 import { GmailMailer } from '../mail/gmail';
+import { SignInRestartedError } from '../mail/oauthPopup';
 import { googleClientId } from '../storage/googleAuth';
 import { Mail, Send, X, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { api } from '../lib/api.js';
@@ -80,6 +81,7 @@ export function EmailStatements({ startDate, endDate, template, onClose }: Props
       setMailer(provider === 'microsoft' ? await MicrosoftMailer.signIn() : await GmailMailer.signIn());
       setConfig(await api.statementEmails.config());
     } catch (e) {
+      if (e instanceof SignInRestartedError) return; // a newer sign-in is under way
       setError(e instanceof Error ? e.message : 'Sign-in failed');
     }
   };
