@@ -10,6 +10,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Done
 
+- 2026-11-26: **Microsoft 365 sending works end to end.** After the first church's admin approved the Entra app, a test statement was sent from the church mailbox on the live site (one `[TEST]` email to the mailbox itself; not recorded as sent). Two bugs fixed on the way: (1) the sign-in popup lost its link to the app (Cross-Origin-Opener-Policy), so the app said "Sign-in was cancelled" and the popup hung on "Signing in…"; the callback now also uses a same-origin BroadcastChannel and a "closed" popup no longer counts as cancelled (`mail/oauthPopup.ts` + tests). (2) Browsers kept the old `oauth-callback.js`; it is now loaded as `?v=2` and `/oauth-callback*` is sent with `Cache-Control: no-store`. The localhost redirect was then removed from the Entra app, so Microsoft sign-in only works on fidelialedger.org (local testing needs a separate dev registration).
 - 2026-11-25: **Email Statements is private for now.** Only churches whose *support ID* is listed in `VITE_EMAIL_CHURCHES` (Cloudflare + `.env.local`; `*` = every church) see the button; the demo never does. The support ID is the first 16 hex of SHA-256(`fidelia:support:<churchId>`), shown to admins on Data & Backup; no church names or IDs go in the repo. Hiding the button is not a security boundary (mail always goes from the signed-in person's own mailbox). `lib/emailAccess.ts` + tests. To do after the Microsoft test: remove the localhost redirect from the Entra app, so only fidelialedger.org can use the client ID.
 - 2026-11-25: **Microsoft 365 sending set up (not yet tried end to end).** Entra app "Fidelia Ledger" registered in the author's own directory (also named Fidelia Ledger): client ID `04c8f022-b98f-4c1e-b9eb-2f4a4a29fe16`, any work/school directory + personal Microsoft accounts, SPA redirects `https://fidelialedger.org/oauth-callback.html` and `http://localhost:5173/oauth-callback.html`, delegated Mail.Send, offline_access, openid, profile, email; no client secret. `fidelialedger.org` verified in the directory (DNS TXT) and set as the app's publisher domain, so the consent screen shows it. `VITE_MS_CLIENT_ID` set in Cloudflare (Production + Preview) and `.env.local`. Still open: a real send test; churches' Microsoft 365 will usually need admin approval until the publisher is verified (Microsoft partner ID). The `.well-known/microsoft-identity-association.json` route kept failing in Entra ("too large") even after serving it uncompressed; DNS verification was used instead.
 - 2026-11-25: **Signing out goes back to the front page.** It used to leave the old address (e.g. /audit) in the bar. `logout` in `lib/auth.tsx` now replaces the address with `/`, for the Sign out button and the idle sign-out; Back doesn't return to the page you left. A refresh while signed in still stays on its page. Checked headless on the demo: /audit → Sign out → `/`. Also: `scripts/export-old-db.mjs` now accepts a relative `OLD_REPO` path.
@@ -94,12 +95,13 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 ## Blocked on
 
 - ~~Microsoft app registration~~: done 2026-11-25 (see Done).
-- **The first church's Microsoft 365 admin approval** of the Fidelia Ledger Entra app (requested by the author), needed before the church mailbox can send.
+- ~~The first church's Microsoft 365 admin approval~~: done 2026-11-26.
 - ~~Google OAuth client ID~~ and ~~Picker API key~~: done by the author; Drive and the picker work locally.
 
 ## Bugs
 
 - None open.
+- **Cloudflare Web Analytics is injected** (`static.cloudflareinsights.com/beacon.min.js`) into every page for browsers. Blocked by the CSP on app pages, but it breaks the no-third-party-scripts rule and runs on /about and /faq. Turn it off in Cloudflare (author to confirm).
 
 ## Under discussion (not scheduled; author will decide)
 
@@ -125,5 +127,5 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 3. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
 4. After the first deploy: check that `/drive-picker.html` gets its own looser CSP and app pages keep the strict one (Cloudflare `_headers` detach syntax is unverified).
 5. ~~End-to-end checks with real Microsoft/Dropbox accounts once their IDs exist~~: Dropbox done; Microsoft below.
-6. **Microsoft test send** once the church's admin approves: on the live site, Email Statements → Sign in with Microsoft 365 as the church mailbox → Send a test first to that same mailbox (one `[TEST]` email, not recorded as sent). Then the real send in January.
-7. **After that test, remove `http://localhost:5173/oauth-callback.html`** from the Entra app's redirect URIs, so only fidelialedger.org can use the client ID. Make a separate "Fidelia Ledger (dev)" registration for local testing.
+6. ~~**Microsoft test send**~~ done 2026-11-26. Was: once the church's admin approves: on the live site, Email Statements → Sign in with Microsoft 365 as the church mailbox → Send a test first to that same mailbox (one `[TEST]` email, not recorded as sent). Then the real send in January.
+7. ~~**After that test, remove `http://localhost:5173/oauth-callback.html`**~~ done 2026-11-26. Still to do: a separate dev registration if needed; from the Entra app's redirect URIs, so only fidelialedger.org can use the client ID. Make a separate "Fidelia Ledger (dev)" registration for local testing.
