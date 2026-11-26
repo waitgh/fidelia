@@ -8,6 +8,7 @@ import { FundMethodTable } from '../components/FundMethodTable.js';
 import { useAuth } from '../lib/auth.js';
 import { DonorPicker } from '../components/DonorPicker.js';
 import { EmailStatements } from '../components/EmailStatements.js';
+import { useEmailAllowed } from '../lib/emailAccess.js';
 import { DonorStatementReport, getStatementPdfOptions, loadHtml2Pdf, type DonorLetterTemplate } from '../components/DonorStatementLetter.js';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -178,8 +179,9 @@ export function Reports() {
     congregationOptions, churchName, churchAddress1, churchCity, churchState, churchZip, churchPhone,
     letterSigningName, letterSigningTitle, donorLetterTemplate, loading: settingsLoading, reload: reloadSettings,
   } = useSettings();
-  const { user } = useAuth();
+  const { user, church } = useAuth();
   const canViewDonors = user?.role !== 'viewer';
+  const canEmail = useEmailAllowed(church);
   const [reportType, setReportType] = useState<ReportType>('summary');
   const [donors, setDonors] = useState<DonorOption[]>([]);
   const [donorId, setDonorId] = useState('');
@@ -451,10 +453,12 @@ export function Reports() {
             <button type="button" className="btn-secondary btn-sm" onClick={() => setShowTemplateEditor((v) => !v)}>
               {showTemplateEditor ? 'Hide' : 'Edit Template'}
             </button>
-            <button type="button" className="btn-primary btn-sm" onClick={() => setShowEmailStatements(true)}>
-              <Mail className="h-3.5 w-3.5" />
-              Email Statements
-            </button>
+            {canEmail && (
+              <button type="button" className="btn-primary btn-sm" onClick={() => setShowEmailStatements(true)}>
+                <Mail className="h-3.5 w-3.5" />
+                Email Statements
+              </button>
+            )}
           </div>
         </div>
         {showTemplateEditor && (
@@ -561,7 +565,7 @@ export function Reports() {
       {donorStatement && <DonorStatementReport data={donorStatement} template={template} />}
       {trendsReport && <TrendsReportView data={trendsReport} congregation={trendsCongregation} />}
 
-      {showEmailStatements && (
+      {canEmail && showEmailStatements && (
         <EmailStatements
           startDate={startDate}
           endDate={endDate}

@@ -4,11 +4,13 @@ import { Save, Download, History, KeyRound, Printer, Loader2 } from 'lucide-reac
 import { useAuth } from '../lib/auth';
 import type { StoredVersion } from '../storage/types';
 import { diagnostics } from '../church/diagnostics';
+import { isDemoChurch, useSupportId } from '../lib/emailAccess';
 
 const STATE_LABEL = { saved: 'All changes saved', dirty: 'Unsaved changes…', saving: 'Saving…', error: 'Save failed' };
 
 export function DataBackup() {
   const { church, user, saveState, enter } = useAuth();
+  const supportId = useSupportId(church);
   const [versions, setVersions] = useState<StoredVersion[]>([]);
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,6 +57,10 @@ export function DataBackup() {
       <section className="card p-5 space-y-3">
         <h2 className="serif-heading text-lg">Church file</h2>
         <p className="text-sm text-gray-600">Location: <b>{church.adapter.describe()}</b></p>
+        {isAdmin && supportId && !isDemoChurch(church) && (
+          <p className="text-sm text-gray-600">Support ID: <code className="select-all font-mono text-gray-800">{supportId}</code>
+            <span className="text-gray-500"> (safe to share with the Fidelia team; it does not reveal anything about your church)</span></p>
+        )}
         <p className="text-sm">Status: <span className={saveState === 'error' ? 'text-red-600 font-medium' : 'text-gray-700'}>{STATE_LABEL[saveState]}</span>
           {saveState === 'error' && church.lastError ? ` — ${(church.lastError as Error).message}` : ''}</p>
         {church.opened.readOnly && <p className="text-sm text-amber-700">This file was saved by a newer version of Fidelia. Reload the page to update; until then it is read-only.</p>}
