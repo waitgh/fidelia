@@ -25,3 +25,8 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Microsoft's publisher-domain check needs a Content-Length, which Cloudflare drops when it
+# compresses; no-transform keeps this small file uncompressed.
+/.well-known/microsoft-identity-association.json
+  Cache-Control: no-transform
