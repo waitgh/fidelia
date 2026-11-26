@@ -93,7 +93,8 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 
 ## Blocked on
 
-- **Microsoft app registration** (needs you, only for M365 sending): Entra app, platform “Single-page application”, redirect `<origin>/oauth-callback.html`, delegated `Mail.Send`. Put the ID in `VITE_MS_CLIENT_ID`.
+- ~~Microsoft app registration~~: done 2026-11-25 (see Done).
+- **The first church's Microsoft 365 admin approval** of the Fidelia Ledger Entra app (requested by the author), needed before the church mailbox can send.
 - ~~Google OAuth client ID~~ and ~~Picker API key~~: done by the author; Drive and the picker work locally.
 
 ## Bugs
@@ -105,6 +106,16 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 - **Sign in with Google** instead of a Fidelia password: a random key kept in the member's hidden Drive app-data folder unlocks their slot. Never derive a key from the email address. Drawbacks discussed: the Google account becomes the only lock, shared office PCs stay signed in, Google holds both file and key, shared church accounts blur the audit log, Drive only. Suggested middle ground: optional “Google + PIN” per member, with passwords kept as the default.
 - **File ownership:** recommend creating the church from a church-owned Google account.
 - **“Move church to…”** (author's Save As idea): move to another Drive account/folder, Dropbox or local file, and mark the old file retired (read-only, “moved to …”) so two live copies can't drift apart.
+- **Paid Email Statements (parked until many churches use Fidelia).** For now the feature is private: only churches in `VITE_EMAIL_CHURCHES` see it, free. When the author decides to open it:
+  - *Model:* email sending through Microsoft 365 / Gmail is the paid part; everything else and **Export PDF** stay free. A lapse never locks data or statements; a send already running always finishes.
+  - *Price:* per church **per year** (statements are a January job; monthly invites subscribe-and-cancel). Modest, e.g. $50–100/year; maybe a small-church tier. Free for the author's churches; consider a free year for early churches.
+  - *Payment provider:* Lemon Squeezy or Paddle (merchant of record, they handle sales tax, ~5% + 50¢) vs Stripe (~3% + 30¢, tax is the author's job). The author creates the account. Hosted checkout and billing pages only, so no third-party scripts on app pages.
+  - *Subscription service:* Cloudflare Worker + KV (e.g. `api.fidelialedger.org`), the first server code, storing no church data: `billing ID → plan, paid until`, where billing ID is a hash of `churchId` (reuse the support ID). Endpoints: `GET /entitlement`, `POST /checkout`, `POST /portal`, `POST /webhook` (signature checked), plus a complimentary list. Add the host to the CSP `connect-src`.
+  - *App:* `lib/billing.ts` (remember the answer a few days so an outage or offline moment doesn't block a treasurer); **Settings → Subscription** tab (admins: plan, renewal, Upgrade, Manage billing; bookkeepers: read-only); the gate replaces the Microsoft/Gmail sign-in with Upgrade / "ask your admin" and points to Export PDF. Replaces the `VITE_EMAIL_CHURCHES` allow list, or the allow list stays as the complimentary list.
+  - *Rollout:* behind a switch (`VITE_BILLING=1`), tried on a preview deploy in the provider's test mode; announce ahead (Stay in touch list) and never start charging just before the January statements season.
+  - *Tests:* webhook signatures; paid / expired / cancelled / complimentary; offline grace; lapse mid-send; gate shows Export PDF.
+  - *Wording:* front page, About, FAQ: "Free for churches. Optional paid email sending."; a user-guide page; record the decision in `docs/decisions.md`.
+  - *Prerequisites:* Microsoft publisher verification (Microsoft AI Cloud Partner Program ID, needs a domain email such as admin@fidelialedger.org), so church users can approve the app themselves instead of needing their admin; Google verification for `gmail.send` (takes weeks) before offering Gmail.
 - ~~Several people managing one Drive church~~: solved by “Find it in Google Drive” (picker) plus invite codes.
 
 ## Next
@@ -113,4 +124,6 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 1. **Author to test:** the full invite flow with two Google accounts (create invite → sign out → join with the code), and the folder chooser showing church files.
 3. Visual check of the phone layout on a real iPhone (the automated browser could not resize its viewport).
 4. After the first deploy: check that `/drive-picker.html` gets its own looser CSP and app pages keep the strict one (Cloudflare `_headers` detach syntax is unverified).
-5. End-to-end checks with real Microsoft/Dropbox accounts once their IDs exist (blocked, see above).
+5. ~~End-to-end checks with real Microsoft/Dropbox accounts once their IDs exist~~: Dropbox done; Microsoft below.
+6. **Microsoft test send** once the church's admin approves: on the live site, Email Statements → Sign in with Microsoft 365 as the church mailbox → Send a test first to that same mailbox (one `[TEST]` email, not recorded as sent). Then the real send in January.
+7. **After that test, remove `http://localhost:5173/oauth-callback.html`** from the Entra app's redirect URIs, so only fidelialedger.org can use the client ID. Make a separate "Fidelia Ledger (dev)" registration for local testing.
