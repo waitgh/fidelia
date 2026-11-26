@@ -102,7 +102,7 @@ Updated by Claude as work proceeds. Newest status at the top of each section.
 ## Bugs
 
 - None open.
-- **Cloudflare Web Analytics is injected** (`static.cloudflareinsights.com/beacon.min.js`) into every page for browsers. Blocked by the CSP on app pages, but it breaks the no-third-party-scripts rule and runs on /about and /faq. Turn it off in Cloudflare (author to confirm).
+- ~~Cloudflare Web Analytics injected into every page~~: fixed 2026-11-26. Its "automatic setup" (Real User Measurements) for fidelialedger.org was turned off in Cloudflare → Web analytics → Manage site → Disable; no page carries `cloudflareinsights` any more. Cloudflare's own request counts still work without a script. Don't re-enable it.
 
 ## Under discussion (not scheduled; author will decide)
 
