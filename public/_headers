@@ -30,3 +30,8 @@
 # compresses; no-transform keeps this small file uncompressed.
 /.well-known/microsoft-identity-association.json
   Cache-Control: no-transform
+
+# The OAuth return page and its script must never come from a stale cache: an old copy
+# broke mail sign-in after a fix (2026-11-26).
+/oauth-callback*
+  Cache-Control: no-store
